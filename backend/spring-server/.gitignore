@@ -1,0 +1,102 @@
+# ===== Gradle / Build =====
+HELP.md
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+*.class
+*.jar
+*.war
+
+# ===== IDE =====
+# STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# IntelliJ
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
+
+# ===== OS / Temp =====
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.tmp
+tmp/
+logs/
+*.log
+*.pid
+
+# ===== Env / Secrets (중요) =====
+# 환경파일은 예시(.example)만 커밋, 실제는 무시
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.*.example
+
+# Spring 프로필 별 민감 설정(예시만 커밋)
+application-local.yml
+application-local.yaml
+application-secret.yml
+application-secret.yaml
+application-prod.local.yml
+application-prod.local.yaml
+!application-*.example.yml
+!application-*.example.yaml
+
+# 인증서 / 키
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# 각종 크리덴셜 JSON (정책적으로 파일명 패턴 사용 권장)
+*credentials*.json
+*service-account*.json
+*secret*.json
+
+# ===== Docker / Runtime =====
+# docker-compose.override는 보통 로컬 전용
+docker-compose.override.yml
+# 컨테이너 볼륨/데이터 디렉터리(프로젝트 내에 둘 경우)
+data/
+volumes/
+**/*-data/
+**/mysql-data/
+**/redis-data/
+**/mongo-data/
+
+# ===== Test / Coverage =====
+test-output/
+.jacoco/
+jacoco.exec
+surefire-reports/
