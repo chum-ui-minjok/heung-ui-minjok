@@ -1,0 +1,19 @@
+# 빌드 산출물
+/build
+/target
+
+# IDE 설정 파일
+.idea
+.vscode
+*.iml
+
+# OS & 기타 불필요 파일
+.DS_Store
+Thumbs.db
+
+# Node / Frontend 관련 (혹시 있을 경우)
+node_modules
+
+# 환경 변수 파일 (보안)
+.env
+.env.*

@@ -1,0 +1,40 @@
+# === 공통 ===
+.DS_Store
+Thumbs.db
+*.log
+*.env
+*.pem
+*.key
+*.p12
+*.jks
+*.pfx
+*.keystore
+
+# === VSCode ===
+.vscode/
+
+# === IntelliJ ===
+.idea/
+*.iml
+
+# === Docker / Jenkins / Infra ===
+docker-compose.override.yml
+volumes/
+logs/
+*.pid
+.env*
+!.env.example
+
+# === Node.js Frontend ===
+node_modules/
+dist/
+build/
+.env.local
+.env.development
+.env.production
+.next/
+coverage/
+
+# === Spring Backend (빌드 전체 제외, 세부는 각 모듈에 따름) ===
+**/build/
+**/.gradle/
