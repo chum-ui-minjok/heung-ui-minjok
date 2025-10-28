@@ -1,7 +1,7 @@
-# 행부자 프로젝트 (Heungbuja)
+# 흥부자
 
 ## 프로젝트 개요
-행부자 프로젝트의 백엔드 서버입니다.
+흥부자 프로젝트의 백엔드 서버입니다.
 
 ## 기술 스택
 - **Backend**: Spring Boot 3.5.7
@@ -108,6 +108,3 @@ docker-compose -f docker-compose.spring.yml ps
 # 컨테이너 재시작
 docker-compose -f docker-compose.spring.yml restart spring
 ```
-
-## 개발자
-- SSAFY S13P31A103
