@@ -38,3 +38,6 @@ coverage/
 # === Spring Backend (빌드 전체 제외, 세부는 각 모듈에 따름) ===
 **/build/
 **/.gradle/
+
+!**/gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.properties
