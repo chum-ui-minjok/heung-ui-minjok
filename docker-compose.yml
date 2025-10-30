@@ -65,7 +65,7 @@ services:
     ports:
       - "${SERVER_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -83,7 +83,7 @@ services:
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -101,7 +101,7 @@ services:
     ports:
       - "8001:8001"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8001/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8001/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -127,7 +127,7 @@ services:
       - "80:80"
       - "443:443"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/nginx-health" ]
+      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || curl -fsS http://localhost/nginx-health"]
       interval: 10s
       timeout: 5s
       retries: 10
