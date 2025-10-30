@@ -1,3 +1,16 @@
+# Certificates and ACME working data
+certbot/conf/
+certbot/www/
+nginx/certs/
+
+# Python venvs
+**/.venv/
+
+# Node / general
+node_modules/
+dist/
+build/
+*.log
 # === 공통 ===
 .DS_Store
 Thumbs.db
