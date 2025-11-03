@@ -1,0 +1,178 @@
+package com.heungbuja.emergency.service;
+
+import com.heungbuja.admin.entity.Admin;
+import com.heungbuja.admin.service.AdminService;
+import com.heungbuja.common.exception.CustomException;
+import com.heungbuja.common.exception.ErrorCode;
+import com.heungbuja.common.websocket.EmergencyAlertMessage;
+import com.heungbuja.emergency.dto.EmergencyRequest;
+import com.heungbuja.emergency.dto.EmergencyResponse;
+import com.heungbuja.emergency.entity.EmergencyReport;
+import com.heungbuja.emergency.repository.EmergencyReportRepository;
+import com.heungbuja.user.entity.User;
+import com.heungbuja.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.ScheduledFuture;
+import java.util.stream.Collectors;
+import java.util.concurrent.TimeUnit;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class EmergencyService {
+
+    private final EmergencyReportRepository emergencyReportRepository;
+    private final UserService userService;
+    private final AdminService adminService;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    // TaskScheduler Bean 등록 필요
+    private final TaskScheduler taskScheduler;
+
+    /**
+     * 긴급 신고 감지
+     */
+    @Transactional
+    public EmergencyResponse detectEmergency(EmergencyRequest request) {
+        User user = userService.findById(request.getUserId());
+
+        EmergencyReport report = EmergencyReport.builder()
+                .user(user)
+                .triggerWord(request.getTriggerWord())
+                .isConfirmed(false)
+                .status(EmergencyReport.ReportStatus.PENDING)
+                .reportedAt(LocalDateTime.now())
+                .build();
+
+        EmergencyReport savedReport = emergencyReportRepository.save(report);
+
+        String message = "괜찮으세요? 정말 신고가 필요하신가요?";
+
+        // 10초 후 자동 confirm 스케줄
+        scheduleAutoConfirm(savedReport.getId(), 10);
+
+        return EmergencyResponse.from(savedReport, message);
+    }
+
+    /**
+     * 10초 후 자동 confirm 스케줄
+     */
+    @Async
+    public void scheduleAutoConfirm(Long reportId, int secondsDelay) {
+        taskScheduler.schedule(
+                () -> autoConfirm(reportId),
+                java.util.Date.from(java.time.Instant.now().plusSeconds(secondsDelay))
+        );
+    }
+
+    @Transactional
+    public void autoConfirm(Long reportId) {
+        // LazyInitializationException 방지: User와 Admin까지 fetch
+        EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+                        "Emergency report not found"));
+
+        // 이미 취소되었으면 confirm하지 않음
+        if (report.getStatus() == EmergencyReport.ReportStatus.FALSE_ALARM) return;
+
+        report.confirm(); // confirm + 상태 변경
+
+        // WebSocket으로 관리자에게 알림 전송
+        sendEmergencyAlert(report);
+    }
+
+    /**
+     * 신고 취소 (유저가 괜찮다고 응답)
+     */
+    @Transactional
+    public void cancelReport(Long reportId) {
+        EmergencyReport report = findById(reportId);
+        report.cancel();
+    }
+
+    /**
+     * 신고 확정 (관리자 호출용)
+     */
+    @Transactional
+    public EmergencyResponse confirmReport(Long reportId) {
+        // Lazy Loading 방지: User와 Admin까지 fetch
+        EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+                        "Emergency report not found"));
+        report.confirm();
+        sendEmergencyAlert(report);
+
+        return EmergencyResponse.from(report, "관리자에게 알림이 전송되었습니다");
+    }
+
+    /**
+     * WebSocket으로 긴급 알림 전송
+     */
+    private void sendEmergencyAlert(EmergencyReport report) {
+        Long adminId = report.getUser().getAdmin().getId();
+
+        // Null-safe 처리: 혹시 모를 null 값을 기본값으로 대체
+        String userName = report.getUser().getName() != null
+                ? report.getUser().getName()
+                : "알 수 없음";
+        String triggerWord = report.getTriggerWord() != null
+                ? report.getTriggerWord()
+                : "미상";
+
+        EmergencyAlertMessage message = EmergencyAlertMessage.from(
+                report.getId(),
+                report.getUser().getId(),
+                userName,
+                triggerWord,
+                report.getReportedAt()
+        );
+
+        String destination = "/topic/admin/" + adminId + "/emergency";
+
+        // 특정 관리자에게만 전송
+        messagingTemplate.convertAndSend(destination, message);
+    }
+
+    /**
+     * 관리자가 신고 처리
+     */
+    @Transactional
+    public void handleReport(Long adminId, Long reportId, String notes) {
+        // Lazy Loading 방지: User와 Admin까지 fetch
+        EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+                        "Emergency report not found"));
+        Admin admin = adminService.findById(adminId);
+
+        report.handle(admin, notes);
+    }
+
+    /**
+     * 신고 목록 조회 (관리자)
+     */
+    public List<EmergencyResponse> getPendingReports() {
+        return emergencyReportRepository
+                .findByStatusOrderByReportedAtDesc(EmergencyReport.ReportStatus.PENDING)
+                .stream()
+                .map(report -> EmergencyResponse.from(report, null))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 신고 조회
+     */
+    public EmergencyReport findById(Long reportId) {
+        return emergencyReportRepository.findById(reportId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+                        "Emergency report not found"));
+    }
+}
