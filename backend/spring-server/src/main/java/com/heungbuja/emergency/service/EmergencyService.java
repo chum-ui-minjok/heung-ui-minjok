@@ -48,6 +48,7 @@ public class EmergencyService {
         EmergencyReport report = EmergencyReport.builder()
                 .user(user)
                 .triggerWord(request.getTriggerWord())
+                .fullText(request.getFullText())  // 전체 발화 텍스트 저장
                 .isConfirmed(false)
                 .status(EmergencyReport.ReportStatus.PENDING)
                 .reportedAt(LocalDateTime.now())
@@ -128,11 +129,17 @@ public class EmergencyService {
                 ? report.getTriggerWord()
                 : "미상";
 
+        // fullText도 null-safe 처리
+        String fullText = report.getFullText() != null
+                ? report.getFullText()
+                : triggerWord;  // fullText가 없으면 triggerWord 사용
+
         EmergencyAlertMessage message = EmergencyAlertMessage.from(
                 report.getId(),
                 report.getUser().getId(),
                 userName,
                 triggerWord,
+                fullText,
                 report.getReportedAt()
         );
 

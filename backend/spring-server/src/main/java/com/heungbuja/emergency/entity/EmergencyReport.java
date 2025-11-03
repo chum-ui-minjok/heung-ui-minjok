@@ -27,6 +27,9 @@ public class EmergencyReport {
     @Column(name = "trigger_word", nullable = false, length = 100)
     private String triggerWord;
 
+    @Column(name = "full_text", columnDefinition = "TEXT")
+    private String fullText;  // 전체 발화 텍스트 (예: "흥부야 신고해줘")
+
     @Column(name = "is_confirmed", nullable = false)
     @Builder.Default
     private Boolean isConfirmed = false;

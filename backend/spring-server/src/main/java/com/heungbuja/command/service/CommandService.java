@@ -65,6 +65,14 @@ public class CommandService {
             IntentResult intentResult = intentClassifier.classify(text);
             Intent intent = intentResult.getIntent();
 
+            // 원본 텍스트 저장 (Emergency 등에서 사용)
+            intentResult = IntentResult.builder()
+                    .intent(intentResult.getIntent())
+                    .entities(intentResult.getEntities())
+                    .confidence(intentResult.getConfidence())
+                    .rawText(text)
+                    .build();
+
             log.info("의도 분석 완료: intent={}, classifier={}", intent, intentClassifier.getClassifierType());
 
             // 2. 음성 명령 로그 저장
@@ -230,6 +238,7 @@ public class CommandService {
             EmergencyRequest emergencyRequest = EmergencyRequest.builder()
                     .userId(user.getId())
                     .triggerWord(intentResult.getEntity("keyword"))
+                    .fullText(intentResult.getRawText())  // 전체 발화 텍스트
                     .build();
 
             emergencyService.detectEmergency(emergencyRequest);

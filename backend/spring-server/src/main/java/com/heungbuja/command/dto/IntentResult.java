@@ -25,6 +25,9 @@ public class IntentResult {
 
     private Double confidence;
 
+    // 원본 발화 텍스트 (전체)
+    private String rawText;
+
     /**
      * 엔티티 추가
      */
