@@ -47,6 +47,8 @@
     <!-- 신고 -->
     <div class="section" id="emergency-section" style="display:none;">
         <div><strong>🚨 긴급 신고</strong></div>
+        <input type="text" id="emg-trigger" placeholder="트리거 단어 (예: 도와줘, 살려줘)" value="도와줘"/>
+        <input type="text" id="emg-fulltext" placeholder="전체 발화 텍스트 (예: 흥부야 도와줘)" value="흥부야 도와줘"/>
         <select id="emg-type">
             <option value="FALL">낙상</option>
             <option value="MEDICAL">의료 응급</option>
@@ -96,7 +98,8 @@
         if(!userToken) return alert('로그인 필요!');
         const body = {
             userId: userId,
-            triggerWord: 'HELP',
+            triggerWord: document.getElementById('emg-trigger').value || '도와줘',
+            fullText: document.getElementById('emg-fulltext').value || null,
             emergencyType: document.getElementById('emg-type').value,
             location: document.getElementById('emg-location').value,
             details: document.getElementById('emg-details').value
@@ -121,7 +124,8 @@
     <div><strong>신고 #${item.reportId}</strong> - <span class="status">${item.status || 'NEW'}</span></div>
     <div><strong>유저 ID:</strong> ${item.userId}</div>
     <div><strong>유저 이름:</strong> ${item.userName}</div>
-    <div><strong>트리거:</strong> ${item.triggerWord}</div>
+    <div><strong>발화 내용:</strong> ${item.fullText || item.triggerWord}</div>
+    <div><strong>트리거 단어:</strong> ${item.triggerWord}</div>
     <div><strong>확인 여부:</strong> ${item.isConfirmed ? '✔' : '❌'}</div>
     <div><strong>신고 시간:</strong> ${new Date(item.reportedAt).toLocaleString()}</div>
     <div><strong>메시지:</strong> ${item.message}</div>

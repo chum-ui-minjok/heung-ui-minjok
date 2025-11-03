@@ -254,7 +254,8 @@
             </div>
             <div class="card-body">
               <p><strong>신고자:</strong> ${item.userName} (${item.userId})</p>
-              <p><strong>트리거:</strong> ${item.triggerWord}</p>
+              <p><strong>발화 내용:</strong> "${item.fullText || item.triggerWord}"</p>
+              <p><strong>트리거 단어:</strong> ${item.triggerWord}</p>
               <p><strong>확인여부:</strong>
                 <span class="${item.isConfirmed?'ok':'no'}">
                   ${item.isConfirmed?'확인됨':'미확인'}
@@ -318,8 +319,9 @@
                 // Null-safe 처리
                 const userName = alertData.userName || '알 수 없음';
                 const triggerWord = alertData.triggerWord || '미상';
+                const fullText = alertData.fullText || triggerWord;  // 전체 발화 텍스트
 
-                addActivity('emergency', userName, `신고: "${triggerWord}"`);
+                addActivity('emergency', userName, `신고: "${fullText}"`);
 
                 // 🔥 해당 어르신 카드를 즉시 긴급 상태로 변경
                 updateUserCardToEmergency(alertData.userId, userName);
@@ -330,6 +332,7 @@
                     userId: alertData.userId,
                     userName: userName,
                     triggerWord: triggerWord,
+                    fullText: fullText,  // 전체 발화 텍스트 추가
                     reportedAt: alertData.reportedAt,
                     status: 'PENDING',        // 새 신고는 항상 PENDING
                     isConfirmed: true,        // WebSocket으로 온 건 이미 confirm된 것
@@ -344,7 +347,8 @@
                 // 모달 팝업
                 document.getElementById('modal-detail').innerHTML =
                     `<b>${userName}</b> 어르신이 긴급 신고하셨습니다.<br>
-               트리거: "<strong>${triggerWord}</strong>"<br>
+               발화 내용: "<strong>${fullText}</strong>"<br>
+               트리거 단어: "<strong>${triggerWord}</strong>"<br>
                발생시간: ${new Date(alertData.reportedAt).toLocaleString('ko-KR')}`;
                 document.getElementById('emergency-modal').classList.add('show');
             });
