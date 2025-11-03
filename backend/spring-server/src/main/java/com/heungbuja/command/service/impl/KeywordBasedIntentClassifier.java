@@ -52,8 +52,15 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
         log.debug("의도 분석 시작: text='{}'", normalized);
 
         // 1. 응급 상황 (최우선)
-        if (containsAny(normalized, EMERGENCY_KEYWORDS)) {
-            return IntentResult.of(Intent.EMERGENCY);
+        String matchedKeyword = findMatchedKeyword(normalized, EMERGENCY_KEYWORDS);
+        if (matchedKeyword != null) {
+            IntentResult result = IntentResult.builder()
+                    .intent(Intent.EMERGENCY)
+                    .confidence(1.0)
+                    .build();
+            result.addEntity("keyword", matchedKeyword);
+            log.debug("응급 상황 감지: keyword='{}'", matchedKeyword);
+            return result;
         }
 
         // 2. 재생 제어
@@ -159,6 +166,16 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
      */
     private boolean containsAny(String text, List<String> keywords) {
         return keywords.stream().anyMatch(text::contains);
+    }
+
+    /**
+     * 매칭된 키워드 찾기 (실제 매칭된 키워드 반환)
+     */
+    private String findMatchedKeyword(String text, List<String> keywords) {
+        return keywords.stream()
+                .filter(text::contains)
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
