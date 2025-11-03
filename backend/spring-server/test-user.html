@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>흥부자 사용자 페이지</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Malgun Gothic',sans-serif; background:#f5f6fa; padding:30px; }
+        .container { max-width:800px; margin:0 auto; }
+        h1 { text-align:center; margin-bottom:20px; color:#333; }
+        .section { background:white; border-radius:12px; padding:20px; margin-bottom:25px; box-shadow:0 3px 10px rgba(0,0,0,0.05); }
+        input, select, textarea { width:100%; padding:10px; margin-bottom:10px; border:1px solid #ccc; border-radius:6px; font-size:14px; }
+        textarea { resize: vertical; min-height:80px; }
+        .btn { padding:10px 20px; border:none; border-radius:6px; font-weight:bold; cursor:pointer; transition:0.2s; }
+        .btn-primary { background:#667eea; color:white; }
+        .btn-primary:hover { background:#5568d3; }
+        .btn-success { background:#2ecc71; color:white; }
+        .btn-success:hover { background:#27ae60; }
+        .response-box { margin-top:15px; padding:15px; border-radius:6px; display:none; font-family:'Courier New',monospace; font-size:13px; }
+        .response-box.show { display:block; }
+        .response-box.success { background:#d4edda; border-left:4px solid #28a745; }
+        .response-box.error { background:#f8d7da; border-left:4px solid #dc3545; }
+        .emergency-list { display:grid; grid-template-columns:1fr; gap:15px; margin-top:10px; }
+        .emergency-card { background:#fff; border-radius:10px; padding:15px; box-shadow:0 3px 8px rgba(0,0,0,0.08); transition:transform 0.2s ease,box-shadow 0.2s ease; }
+        .emergency-card.new { border-left:4px solid #f39c12; }
+        .emergency-card.resolved { border-left:4px solid #2ecc71; }
+        .emergency-card.rejected { border-left:4px solid #e74c3c; }
+        .emergency-card:hover { transform:translateY(-3px); box-shadow:0 6px 16px rgba(0,0,0,0.12); }
+        .status { font-weight:bold; }
+        .ok { color:#2ecc71; font-weight:bold; }
+        .no { color:#e74c3c; font-weight:bold; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>👴 흥부자 사용자 페이지</h1>
+
+    <!-- 로그인 -->
+    <div class="section" id="login-section">
+        <div><strong>기기 로그인</strong></div>
+        <input type="text" id="device-serial" placeholder="DEVICE001" value="DEVICE001"/>
+        <button class="btn btn-primary" onclick="deviceLogin()">로그인</button>
+        <div id="res-device-login" class="response-box"></div>
+    </div>
+
+    <!-- 신고 -->
+    <div class="section" id="emergency-section" style="display:none;">
+        <div><strong>🚨 긴급 신고</strong></div>
+        <select id="emg-type">
+            <option value="FALL">낙상</option>
+            <option value="MEDICAL">의료 응급</option>
+            <option value="FIRE">화재</option>
+            <option value="CRIME">범죄</option>
+            <option value="OTHER">기타</option>
+        </select>
+        <input type="text" id="emg-location" placeholder="위치 입력"/>
+        <textarea id="emg-details" placeholder="상세 설명"></textarea>
+        <button class="btn btn-primary" onclick="createEmergency()">신고하기</button>
+        <div id="res-emg-create" class="response-box"></div>
+        <div id="emg-alerts" class="emergency-list"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+    let userToken = null;
+    let userId = null;
+
+    function showResponse(id,data,isError=false){
+        const el = document.getElementById(id);
+        el.className = `response-box show ${isError?'error':'success'}`;
+        el.innerHTML = `<pre>${JSON.stringify(data,null,2)}</pre>`;
+    }
+
+    async function deviceLogin(){
+        const serial = document.getElementById('device-serial').value;
+        try{
+            const res = await fetch(`${API_BASE}/auth/device`,{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({serialNumber: serial})
+            });
+            const data = await res.json();
+            showResponse('res-device-login', data, !res.ok);
+            if(res.ok){
+                userToken = data.accessToken;
+                userId = data.userId;
+                document.getElementById('login-section').style.display='none';
+                document.getElementById('emergency-section').style.display='block';
+            }
+        }catch(e){showResponse('res-device-login',{error:e.message},true);}
+    }
+
+    async function createEmergency(){
+        if(!userToken) return alert('로그인 필요!');
+        const body = {
+            userId: userId,
+            triggerWord: 'HELP',
+            emergencyType: document.getElementById('emg-type').value,
+            location: document.getElementById('emg-location').value,
+            details: document.getElementById('emg-details').value
+        };
+        try{
+            const res = await fetch(`${API_BASE}/emergency`,{
+                method:'POST',
+                headers:{'Content-Type':'application/json','Authorization':`Bearer ${userToken}`},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            showResponse('res-emg-create', data, !res.ok);
+            if(res.ok) renderEmergencyAlert(data);
+        }catch(e){showResponse('res-emg-create',{error:e.message},true);}
+    }
+
+    function renderEmergencyAlert(item){
+        const container = document.getElementById('emg-alerts');
+        const card = document.createElement('div');
+        card.className='emergency-card new';
+        card.innerHTML=`
+    <div><strong>신고 #${item.reportId}</strong> - <span class="status">${item.status || 'NEW'}</span></div>
+    <div><strong>유저 ID:</strong> ${item.userId}</div>
+    <div><strong>유저 이름:</strong> ${item.userName}</div>
+    <div><strong>트리거:</strong> ${item.triggerWord}</div>
+    <div><strong>확인 여부:</strong> ${item.isConfirmed ? '✔' : '❌'}</div>
+    <div><strong>신고 시간:</strong> ${new Date(item.reportedAt).toLocaleString()}</div>
+    <div><strong>메시지:</strong> ${item.message}</div>
+    `;
+        container.prepend(card);
+
+        // 🔊 알림 소리
+        const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+        audio.play();
+    }
+
+</script>
+</body>
+</html>
