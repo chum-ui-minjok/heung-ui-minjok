@@ -17,8 +17,7 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
+    # no host port mapping; internal network only
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -45,7 +44,7 @@ services:
     ports:
       - "${SERVER_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
