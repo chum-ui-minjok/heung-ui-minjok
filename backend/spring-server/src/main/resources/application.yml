@@ -52,3 +52,9 @@ openai:
       url: https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/transcriptions
     tts:
       url: https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/speech
+
+app:
+  s3:
+    bucket: ${APP_S3_BUCKET:heungbuja-bucket}
+    region: ${APP_S3_REGION:ap-northeast-2}
+    url-ttl-minutes: ${APP_S3_URL_TTL_MINUTES:30}
