@@ -30,4 +30,7 @@ public interface EmergencyReportRepository extends JpaRepository<EmergencyReport
             "WHERE r.id = :id")
     Optional<EmergencyReport> findByIdWithUserAndAdmin(@Param("id") Long id);
 
+    // 특정 사용자의 가장 최근 PENDING 신고 조회
+    Optional<EmergencyReport> findFirstByUserIdAndStatusOrderByReportedAtDesc(Long userId, ReportStatus status);
+
 }

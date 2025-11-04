@@ -1,5 +1,6 @@
 package com.heungbuja.voice.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.heungbuja.common.exception.CustomException;
 import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.voice.service.SttService;
@@ -7,14 +8,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 
 /**
@@ -33,10 +37,14 @@ public class OpenAiWhisperSttServiceImpl implements SttService {
     @Value("${openai.gms.stt.url:https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/transcriptions}")
     private String sttApiUrl;
 
-    private final RestTemplate restTemplate;
+    private final HttpClient httpClient;
+    private final ObjectMapper objectMapper;
 
     public OpenAiWhisperSttServiceImpl() {
-        this.restTemplate = new RestTemplate();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(30))
+                .build();
+        this.objectMapper = new ObjectMapper();
     }
 
     @Override
@@ -52,49 +60,93 @@ public class OpenAiWhisperSttServiceImpl implements SttService {
         try {
             long startTime = System.currentTimeMillis();
 
-            // Multipart 요청 생성
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
-            headers.setBearerAuth(gmsApiKey);
+            // 디버깅 로그 추가
+            log.info("===== STT API 요청 상세 =====");
+            log.info("URL: {}", sttApiUrl);
+            log.info("API Key 길이: {}", gmsApiKey.length());
+            log.info("API Key (첫 20자): {}...", gmsApiKey.substring(0, Math.min(20, gmsApiKey.length())));
+            log.info("File: {}, Size: {} bytes", audioFile.getOriginalFilename(), audioFile.getSize());
+            log.info("Model: whisper-1, Language: ko");
+            log.info("============================");
 
-            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-            body.add("file", new ByteArrayResource(audioFile.getBytes()) {
-                @Override
-                public String getFilename() {
-                    return audioFile.getOriginalFilename();
-                }
-            });
-            body.add("model", "whisper-1");
-            body.add("language", "ko"); // 한국어 우선 인식
+            // Multipart boundary 생성
+            String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+            byte[] multipartBody = buildMultipartBody(audioFile, boundary);
 
-            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            // HTTP 요청 생성
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(sttApiUrl))
+                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                    .header("Authorization", "Bearer " + gmsApiKey)
+                    .header("User-Agent", "HeungbujaApp/1.0")
+                    .header("Accept", "*/*")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
+                    .build();
 
             // API 호출
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    sttApiUrl,
-                    HttpMethod.POST,
-                    requestEntity,
-                    Map.class
-            );
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             long endTime = System.currentTimeMillis();
-            log.info("OpenAI Whisper STT 완료: 소요 시간={}ms", endTime - startTime);
+            log.info("OpenAI Whisper STT 완료: 소요 시간={}ms, Status Code={}",
+                    endTime - startTime, response.statusCode());
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                String text = (String) response.getBody().get("text");
+            if (response.statusCode() == 200) {
+                Map<String, Object> responseBody = objectMapper.readValue(response.body(), Map.class);
+                String text = (String) responseBody.get("text");
                 log.info("STT 결과: '{}'", text);
                 return text.trim();
             } else {
+                log.error("STT API 응답 오류: Status={}, Body={}", response.statusCode(), response.body());
                 throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR,
-                        "STT API 응답 오류");
+                        "STT API 응답 오류: " + response.statusCode());
             }
 
         } catch (CustomException e) {
             throw e;
+        } catch (IOException e) {
+            log.error("STT API 네트워크 에러", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "음성 인식 네트워크 오류: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("STT API 호출 중단", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "음성 인식 호출이 중단되었습니다");
         } catch (Exception e) {
             log.error("OpenAI Whisper STT 실패", e);
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR,
                     "음성 인식에 실패했습니다: " + e.getMessage());
         }
+    }
+
+    /**
+     * Multipart/form-data 본문 생성
+     */
+    private byte[] buildMultipartBody(MultipartFile audioFile, String boundary) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        String CRLF = "\r\n";
+
+        // 파일 파트
+        outputStream.write(("--" + boundary + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" +
+                audioFile.getOriginalFilename() + "\"" + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("Content-Type: " + audioFile.getContentType() + CRLF + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(audioFile.getBytes());
+        outputStream.write(CRLF.getBytes(StandardCharsets.UTF_8));
+
+        // model 파트
+        outputStream.write(("--" + boundary + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("Content-Disposition: form-data; name=\"model\"" + CRLF + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("whisper-1" + CRLF).getBytes(StandardCharsets.UTF_8));
+
+        // language 파트
+        outputStream.write(("--" + boundary + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("Content-Disposition: form-data; name=\"language\"" + CRLF + CRLF).getBytes(StandardCharsets.UTF_8));
+        outputStream.write(("ko" + CRLF).getBytes(StandardCharsets.UTF_8));
+
+        // 종료 boundary
+        outputStream.write(("--" + boundary + "--" + CRLF).getBytes(StandardCharsets.UTF_8));
+
+        return outputStream.toByteArray();
     }
 }

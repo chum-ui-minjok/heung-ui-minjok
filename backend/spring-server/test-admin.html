@@ -38,8 +38,9 @@
         .emergency-card .report-id { color:#667eea; }
         .emergency-card .status { padding:3px 8px; border-radius:5px; font-size:12px; color:white; }
         .emergency-card.pending .status { background:#f39c12; }
+        .emergency-card.confirmed .status { background:#e74c3c; }
         .emergency-card.resolved .status { background:#2ecc71; }
-        .emergency-card.rejected .status { background:#e74c3c; }
+        .emergency-card.false_alarm .status { background:#95a5a6; }
         .emergency-card .ok { color:#2ecc71; font-weight:bold; }
         .emergency-card .no { color:#e74c3c; font-weight:bold; }
         .emergency-card .resolve-btn { width:100%; margin-top:10px; padding:8px; border:none; border-radius:6px; background:#2ecc71; color:white; font-weight:bold; cursor:pointer; }
@@ -196,9 +197,11 @@
             });
             if(resEmg.ok) {
                 const list = await resEmg.json();
-                emergencyList = list.slice().reverse(); // 최신 위
+                emergencyList = list; // 서버에서 이미 최신순으로 정렬됨
                 renderEmergencyCards(emergencyList);
-                updateBadge(list.length);
+                // PENDING + CONFIRMED만 배지에 표시
+                const pendingCount = emergencyList.filter(i=>i.status==='PENDING' || i.status==='CONFIRMED').length;
+                updateBadge(pendingCount);
             }
         } catch(e) {
             console.error('데이터 로드 실패:', e);
@@ -244,17 +247,27 @@
         }
 
         container.className = 'response-box show success';
+
+        // 상태 한글 변환
+        const statusText = {
+            'PENDING': '대기중',
+            'CONFIRMED': '확정됨',
+            'RESOLVED': '처리완료',
+            'FALSE_ALARM': '오탐'
+        };
+
         container.innerHTML = `
       <div class="emergency-list">
         ${list.map(item => `
           <div class="emergency-card ${item.status.toLowerCase()}">
             <div class="card-header">
               <span class="report-id">#${item.reportId}</span>
-              <span class="status">${item.status}</span>
+              <span class="status">${statusText[item.status] || item.status}</span>
             </div>
             <div class="card-body">
               <p><strong>신고자:</strong> ${item.userName} (${item.userId})</p>
-              <p><strong>트리거:</strong> ${item.triggerWord}</p>
+              <p><strong>발화 내용:</strong> "${item.fullText || item.triggerWord}"</p>
+              <p><strong>트리거 단어:</strong> ${item.triggerWord}</p>
               <p><strong>확인여부:</strong>
                 <span class="${item.isConfirmed?'ok':'no'}">
                   ${item.isConfirmed?'확인됨':'미확인'}
@@ -263,7 +276,7 @@
               <p><strong>발생시간:</strong> ${new Date(item.reportedAt).toLocaleString('ko-KR')}</p>
               ${item.message?`<p><strong>메시지:</strong> ${item.message}</p>`:''}
             </div>
-            ${item.status==='PENDING'
+            ${item.status==='PENDING' || item.status==='CONFIRMED'
             ? `<button class="resolve-btn" onclick="handleEmergencyResolve(${item.reportId})">✅ 처리</button>`
             : `<div class="resolved-label">✔ 처리 완료</div>`
         }
@@ -295,7 +308,7 @@
                 // 상태 변경 반영
                 emergencyList = emergencyList.map(item => item.reportId===id ? {...item, status:'RESOLVED'} : item);
                 renderEmergencyCards(emergencyList);
-                updateBadge(emergencyList.filter(i=>i.status==='PENDING').length);
+                updateBadge(emergencyList.filter(i=>i.status==='PENDING' || i.status==='CONFIRMED').length);
             } else {
                 const err = await res.json();
                 alert('처리 실패: '+(err.message||res.statusText));
@@ -310,16 +323,22 @@
         const socket = new SockJS(`${API_BASE}/ws`);
         stompClient = Stomp.over(socket);
         stompClient.connect({}, () => {
-            console.log('WS 연결됨');
-            stompClient.subscribe(`/topic/admin/${adminId}/emergency`, msg => {
+            console.log('✅ WebSocket 연결 성공!');
+            console.log('👤 현재 adminId:', adminId);
+            const subscribePath = `/topic/admin/${adminId}/emergency`;
+            console.log('🔔 구독 경로:', subscribePath);
+
+            stompClient.subscribe(subscribePath, msg => {
+                console.log('📩 WebSocket 메시지 수신!', msg.body);
                 const alertData = JSON.parse(msg.body);
                 alertAudio.play();
 
                 // Null-safe 처리
                 const userName = alertData.userName || '알 수 없음';
                 const triggerWord = alertData.triggerWord || '미상';
+                const fullText = alertData.fullText || triggerWord;  // 전체 발화 텍스트
 
-                addActivity('emergency', userName, `신고: "${triggerWord}"`);
+                addActivity('emergency', userName, `신고: "${fullText}"`);
 
                 // 🔥 해당 어르신 카드를 즉시 긴급 상태로 변경
                 updateUserCardToEmergency(alertData.userId, userName);
@@ -330,21 +349,23 @@
                     userId: alertData.userId,
                     userName: userName,
                     triggerWord: triggerWord,
+                    fullText: fullText,  // 전체 발화 텍스트 추가
                     reportedAt: alertData.reportedAt,
-                    status: 'PENDING',        // 새 신고는 항상 PENDING
-                    isConfirmed: true,        // WebSocket으로 온 건 이미 confirm된 것
+                    status: 'CONFIRMED',      // WebSocket으로 온 건 이미 confirm된 상태
+                    isConfirmed: true,
                     message: null
                 };
 
                 // 리스트 최상단에 추가
                 emergencyList.unshift(emergencyItem);
                 renderEmergencyCards(emergencyList);
-                updateBadge(emergencyList.filter(i=>i.status==='PENDING').length);
+                updateBadge(emergencyList.filter(i=>i.status==='PENDING' || i.status==='CONFIRMED').length);
 
                 // 모달 팝업
                 document.getElementById('modal-detail').innerHTML =
                     `<b>${userName}</b> 어르신이 긴급 신고하셨습니다.<br>
-               트리거: "<strong>${triggerWord}</strong>"<br>
+               발화 내용: "<strong>${fullText}</strong>"<br>
+               트리거 단어: "<strong>${triggerWord}</strong>"<br>
                발생시간: ${new Date(alertData.reportedAt).toLocaleString('ko-KR')}`;
                 document.getElementById('emergency-modal').classList.add('show');
             });

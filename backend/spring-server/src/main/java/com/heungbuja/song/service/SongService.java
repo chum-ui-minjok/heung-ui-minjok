@@ -13,7 +13,6 @@ import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class SongService {
 
     private final SongRepository songRepository;
@@ -26,7 +25,7 @@ public class SongService {
         List<Song> results = songRepository.searchByQuery(query);
 
         if (results.isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+            throw new CustomException(ErrorCode.SONG_NOT_FOUND,
                     "'" + query + "' 검색 결과가 없습니다");
         }
 
@@ -41,7 +40,7 @@ public class SongService {
         List<Song> results = songRepository.findByArtistContaining(artist);
 
         if (results.isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+            throw new CustomException(ErrorCode.SONG_NOT_FOUND,
                     artist + " 가수의 노래를 찾을 수 없습니다");
         }
 
@@ -55,7 +54,7 @@ public class SongService {
         List<Song> results = songRepository.findByTitleContaining(title);
 
         if (results.isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+            throw new CustomException(ErrorCode.SONG_NOT_FOUND,
                     "'" + title + "' 제목의 노래를 찾을 수 없습니다");
         }
 
@@ -69,7 +68,7 @@ public class SongService {
         List<Song> results = songRepository.findByArtistAndTitle(artist, title);
 
         if (results.isEmpty()) {
-            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE,
+            throw new CustomException(ErrorCode.SONG_NOT_FOUND,
                     artist + "의 '" + title + "' 노래를 찾을 수 없습니다");
         }
 

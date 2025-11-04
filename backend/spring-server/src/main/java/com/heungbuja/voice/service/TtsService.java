@@ -32,4 +32,13 @@ public interface TtsService {
      * @return 음성 파일 바이트 배열
      */
     byte[] getAudioFile(String fileId);
+
+    /**
+     * 텍스트를 음성으로 변환하여 바이트 배열로 직접 반환 (파일 저장 없음)
+     *
+     * @param text 변환할 텍스트
+     * @param voiceType 음성 타입
+     * @return 음성 데이터 바이트 배열 (MP3)
+     */
+    byte[] synthesizeBytes(String text, String voiceType);
 }
