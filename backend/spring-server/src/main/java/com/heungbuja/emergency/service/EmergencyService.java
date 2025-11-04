@@ -79,8 +79,7 @@ public class EmergencyService {
     public void autoConfirm(Long reportId) {
         // LazyInitializationException 방지: User와 Admin까지 fetch
         EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
-                        "Emergency report not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND));
 
         // 이미 취소되었으면 confirm하지 않음
         if (report.getStatus() == EmergencyReport.ReportStatus.FALSE_ALARM) return;
@@ -101,14 +100,29 @@ public class EmergencyService {
     }
 
     /**
+     * 신고 취소 (음성 명령: "괜찮아")
+     * 해당 사용자의 가장 최근 PENDING 신고를 취소
+     */
+    @Transactional
+    public EmergencyResponse cancelRecentReport(Long userId) {
+        EmergencyReport report = emergencyReportRepository
+                .findFirstByUserIdAndStatusOrderByReportedAtDesc(userId, EmergencyReport.ReportStatus.PENDING)
+                .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND,
+                        "취소할 응급 신고가 없습니다"));
+
+        report.cancel();
+
+        return EmergencyResponse.from(report, "괜찮으시군요. 신고를 취소했습니다");
+    }
+
+    /**
      * 신고 확정 (관리자 호출용)
      */
     @Transactional
     public EmergencyResponse confirmReport(Long reportId) {
         // Lazy Loading 방지: User와 Admin까지 fetch
         EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
-                        "Emergency report not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND));
         report.confirm();
         sendEmergencyAlert(report);
 
@@ -156,8 +170,7 @@ public class EmergencyService {
     public void handleReport(Long adminId, Long reportId, String notes) {
         // Lazy Loading 방지: User와 Admin까지 fetch
         EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
-                        "Emergency report not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND));
         Admin admin = adminService.findById(adminId);
 
         report.handle(admin, notes);
@@ -179,7 +192,6 @@ public class EmergencyService {
      */
     public EmergencyReport findById(Long reportId) {
         return emergencyReportRepository.findById(reportId)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INPUT_VALUE,
-                        "Emergency report not found"));
+                .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND));
     }
 }

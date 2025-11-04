@@ -3,6 +3,8 @@ package com.heungbuja.command.service;
 import com.heungbuja.command.dto.CommandRequest;
 import com.heungbuja.command.dto.CommandResponse;
 import com.heungbuja.command.dto.IntentResult;
+import com.heungbuja.common.exception.CustomException;
+import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.emergency.dto.EmergencyRequest;
 import com.heungbuja.emergency.service.EmergencyService;
 import com.heungbuja.song.dto.SongInfoDto;
@@ -52,8 +54,11 @@ public class CommandService {
 
     /**
      * 텍스트 명령어 처리 (통합 엔드포인트)
+     *
+     * noRollbackFor: CustomException을 Controller에서 catch하므로
+     * 트랜잭션을 롤백하지 않도록 설정
      */
-    @Transactional
+    @Transactional(noRollbackFor = {CustomException.class, Exception.class})
     public CommandResponse processTextCommand(CommandRequest request) {
         User user = userService.findById(request.getUserId());
         String text = request.getText().trim();
@@ -85,9 +90,13 @@ public class CommandService {
 
             return response;
 
+        } catch (CustomException e) {
+            // CustomException은 그대로 던져서 Controller에서 적절한 HTTP 상태로 변환
+            throw e;
         } catch (Exception e) {
+            // 예상치 못한 에러는 COMMAND_EXECUTION_FAILED로 변환
             log.error("명령 처리 실패: userId={}, text='{}'", user.getId(), text, e);
-            return handleError();
+            throw new CustomException(ErrorCode.COMMAND_EXECUTION_FAILED, "명령 처리 중 오류가 발생했습니다");
         }
     }
 
@@ -117,6 +126,7 @@ public class CommandService {
 
             // 응급 상황
             case EMERGENCY -> handleEmergency(user, intentResult);
+            case EMERGENCY_CANCEL -> handleEmergencyCancel(user);
 
             // 인식 불가
             case UNKNOWN -> handleUnknown();
@@ -129,93 +139,67 @@ public class CommandService {
      * 가수명으로 노래 검색
      */
     private CommandResponse handleSearchByArtist(User user, IntentResult intentResult) {
-        try {
-            String query = intentResult.getEntity("query");
-            if (query == null) query = intentResult.getEntity("artist");
+        String query = intentResult.getEntity("query");
+        if (query == null) query = intentResult.getEntity("artist");
 
-            Song song = songService.searchByArtist(query);
+        Song song = songService.searchByArtist(query);
 
-            // 청취 이력 기록
-            listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
+        // 청취 이력 기록
+        listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
 
-            String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_ARTIST, song.getArtist(), song.getTitle());
-            String ttsUrl = ttsService.synthesize(responseText);
+        String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_ARTIST, song.getArtist(), song.getTitle());
+        String ttsUrl = ttsService.synthesize(responseText);
 
-            return CommandResponse.withSong(
-                    Intent.SELECT_BY_ARTIST,
-                    responseText,
-                    "/commands/tts/" + ttsUrl,
-                    SongInfoDto.from(song, PlaybackMode.LISTENING)
-            );
-
-        } catch (Exception e) {
-            log.error("가수명 검색 실패", e);
-            String errorMsg = responseGenerator.songNotFoundMessage(intentResult.getEntity("query"));
-            String ttsUrl = ttsService.synthesize(errorMsg);
-            return CommandResponse.failure(Intent.SELECT_BY_ARTIST, errorMsg, "/commands/tts/" + ttsUrl);
-        }
+        return CommandResponse.withSong(
+                Intent.SELECT_BY_ARTIST,
+                responseText,
+                "/commands/tts/" + ttsUrl,
+                SongInfoDto.from(song, PlaybackMode.LISTENING)
+        );
     }
 
     /**
      * 제목으로 노래 검색
      */
     private CommandResponse handleSearchByTitle(User user, IntentResult intentResult) {
-        try {
-            String title = intentResult.getEntity("title");
-            Song song = songService.searchByTitle(title);
+        String title = intentResult.getEntity("title");
+        Song song = songService.searchByTitle(title);
 
-            // 청취 이력 기록
-            listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
+        // 청취 이력 기록
+        listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
 
-            String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_TITLE, song.getArtist(), song.getTitle());
-            String ttsUrl = ttsService.synthesize(responseText);
+        String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_TITLE, song.getArtist(), song.getTitle());
+        String ttsUrl = ttsService.synthesize(responseText);
 
-            return CommandResponse.withSong(
-                    Intent.SELECT_BY_TITLE,
-                    responseText,
-                    "/commands/tts/" + ttsUrl,
-                    SongInfoDto.from(song, PlaybackMode.LISTENING)
-            );
-
-        } catch (Exception e) {
-            log.error("제목 검색 실패", e);
-            String errorMsg = responseGenerator.songNotFoundMessage(intentResult.getEntity("title"));
-            String ttsUrl = ttsService.synthesize(errorMsg);
-            return CommandResponse.failure(Intent.SELECT_BY_TITLE, errorMsg, "/commands/tts/" + ttsUrl);
-        }
+        return CommandResponse.withSong(
+                Intent.SELECT_BY_TITLE,
+                responseText,
+                "/commands/tts/" + ttsUrl,
+                SongInfoDto.from(song, PlaybackMode.LISTENING)
+        );
     }
 
     /**
      * 가수+제목으로 노래 검색
      */
     private CommandResponse handleSearchByArtistAndTitle(User user, IntentResult intentResult) {
-        try {
-            String artist = intentResult.getEntity("artist");
-            String title = intentResult.getEntity("title");
+        String artist = intentResult.getEntity("artist");
+        String title = intentResult.getEntity("title");
 
-            Song song = songService.searchByArtistAndTitle(artist, title);
+        Song song = songService.searchByArtistAndTitle(artist, title);
 
-            // 청취 이력 기록
-            listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
+        // 청취 이력 기록
+        listeningHistoryService.recordListening(user, song, PlaybackMode.LISTENING);
 
-            String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_ARTIST_TITLE, song.getArtist(), song.getTitle());
-            String ttsUrl = ttsService.synthesize(responseText);
+        String responseText = responseGenerator.generateResponse(Intent.SELECT_BY_ARTIST_TITLE, song.getArtist(), song.getTitle());
+        String ttsUrl = ttsService.synthesize(responseText);
 
-            return CommandResponse.withSong(
-                    Intent.SELECT_BY_ARTIST_TITLE,
-                    responseText,
-                    "/commands/tts/" + ttsUrl,
-                    SongInfoDto.from(song, PlaybackMode.LISTENING)
-            );
-
-        } catch (Exception e) {
-            log.error("가수+제목 검색 실패", e);
-            String errorMsg = responseGenerator.songNotFoundMessage(
-                    intentResult.getEntity("artist") + " " + intentResult.getEntity("title")
-            );
-            String ttsUrl = ttsService.synthesize(errorMsg);
-            return CommandResponse.failure(Intent.SELECT_BY_ARTIST_TITLE, errorMsg, "/commands/tts/" + ttsUrl);
-        }
+        return CommandResponse.withSong(
+                Intent.SELECT_BY_ARTIST_TITLE,
+                responseText,
+                "/commands/tts/" + ttsUrl,
+                SongInfoDto.from(song, PlaybackMode.LISTENING)
+        );
     }
 
     /**
@@ -233,25 +217,31 @@ public class CommandService {
      * 응급 상황 처리
      */
     private CommandResponse handleEmergency(User user, IntentResult intentResult) {
-        try {
-            // 응급 신고 생성
-            EmergencyRequest emergencyRequest = EmergencyRequest.builder()
-                    .userId(user.getId())
-                    .triggerWord(intentResult.getEntity("keyword"))
-                    .fullText(intentResult.getRawText())  // 전체 발화 텍스트
-                    .build();
+        // 응급 신고 생성
+        EmergencyRequest emergencyRequest = EmergencyRequest.builder()
+                .userId(user.getId())
+                .triggerWord(intentResult.getEntity("keyword"))
+                .fullText(intentResult.getRawText())  // 전체 발화 텍스트
+                .build();
 
-            emergencyService.detectEmergency(emergencyRequest);
+        emergencyService.detectEmergency(emergencyRequest);
 
-            String responseText = responseGenerator.generateResponse(Intent.EMERGENCY);
-            String ttsUrl = ttsService.synthesize(responseText, "urgent"); // 긴급 음성 타입
+        String responseText = responseGenerator.generateResponse(Intent.EMERGENCY);
+        String ttsUrl = ttsService.synthesize(responseText, "urgent"); // 긴급 음성 타입
 
-            return CommandResponse.success(Intent.EMERGENCY, responseText, "/commands/tts/" + ttsUrl);
+        return CommandResponse.success(Intent.EMERGENCY, responseText, "/commands/tts/" + ttsUrl);
+    }
 
-        } catch (Exception e) {
-            log.error("응급 상황 처리 실패", e);
-            return handleError();
-        }
+    /**
+     * 응급 상황 취소 처리
+     */
+    private CommandResponse handleEmergencyCancel(User user) {
+        emergencyService.cancelRecentReport(user.getId());
+
+        String responseText = responseGenerator.generateResponse(Intent.EMERGENCY_CANCEL);
+        String ttsUrl = ttsService.synthesize(responseText);
+
+        return CommandResponse.success(Intent.EMERGENCY_CANCEL, responseText, "/commands/tts/" + ttsUrl);
     }
 
     /**

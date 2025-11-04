@@ -24,6 +24,9 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
     private static final List<String> EMERGENCY_KEYWORDS = Arrays.asList(
             "도와줘", "도와주세요", "살려줘", "살려주세요", "아야", "아파", "쓰러졌어", "위험해"
     );
+    private static final List<String> EMERGENCY_CANCEL_KEYWORDS = Arrays.asList(
+            "괜찮아", "괜찮습니다", "괜찮아요", "괜찮네요", "아니야", "아니에요", "취소"
+    );
 
     // 재생 제어 키워드
     private static final List<String> PAUSE_KEYWORDS = Arrays.asList("잠깐", "멈춰", "정지", "일시정지");
@@ -63,7 +66,13 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
             return result;
         }
 
-        // 2. 재생 제어
+        // 2. 응급 취소
+        if (containsAny(normalized, EMERGENCY_CANCEL_KEYWORDS)) {
+            log.debug("응급 상황 취소 감지");
+            return IntentResult.of(Intent.EMERGENCY_CANCEL);
+        }
+
+        // 3. 재생 제어
         if (containsAny(normalized, PAUSE_KEYWORDS)) {
             return IntentResult.of(Intent.MUSIC_PAUSE);
         }
@@ -77,7 +86,7 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
             return IntentResult.of(Intent.MUSIC_STOP);
         }
 
-        // 3. 모드 전환/시작
+        // 4. 모드 전환/시작
         if (containsAny(normalized, LISTENING_START_KEYWORDS)) {
             return IntentResult.of(Intent.MODE_LISTENING_START);
         }
@@ -91,13 +100,13 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
             return IntentResult.of(Intent.MODE_SWITCH_TO_EXERCISE);
         }
 
-        // 4. 노래 검색 (가수 + 제목 패턴)
+        // 5. 노래 검색 (가수 + 제목 패턴)
         IntentResult songIntent = detectSongSearchIntent(normalized);
         if (songIntent != null) {
             return songIntent;
         }
 
-        // 5. 인식 불가
+        // 6. 인식 불가
         return IntentResult.of(Intent.UNKNOWN);
     }
 

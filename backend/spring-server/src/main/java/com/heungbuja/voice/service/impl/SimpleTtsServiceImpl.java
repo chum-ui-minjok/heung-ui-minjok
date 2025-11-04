@@ -75,4 +75,19 @@ public class SimpleTtsServiceImpl implements TtsService {
                     "TTS 파일을 읽을 수 없습니다");
         }
     }
+
+    @Override
+    public byte[] synthesizeBytes(String text, String voiceType) {
+        log.info("TTS 생성 (직접 반환): text='{}', voiceType='{}'", text, voiceType);
+
+        // Mock 구현: 최소한의 유효한 MP3 헤더 반환
+        // 실제 환경에서는 OpenAiTtsServiceImpl이 사용됨
+        byte[] mockMp3Header = new byte[] {
+                (byte)0xFF, (byte)0xFB, (byte)0x90, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        };
+
+        log.warn("SimpleTtsServiceImpl (Mock): 실제 TTS 대신 더미 데이터 반환");
+        return mockMp3Header;
+    }
 }
