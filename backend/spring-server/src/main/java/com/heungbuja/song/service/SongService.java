@@ -13,7 +13,6 @@ import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class SongService {
 
     private final SongRepository songRepository;

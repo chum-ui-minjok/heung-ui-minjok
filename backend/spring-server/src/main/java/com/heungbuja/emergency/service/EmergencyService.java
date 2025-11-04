@@ -25,9 +25,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class EmergencyService {
 
     private final EmergencyReportRepository emergencyReportRepository;
@@ -58,6 +60,9 @@ public class EmergencyService {
 
         String message = "괜찮으세요? 정말 신고가 필요하신가요?";
 
+        log.info("응급 신고 감지: reportId={}, userId={}, 10초 후 자동 확정 스케줄",
+                savedReport.getId(), user.getId());
+
         // 10초 후 자동 confirm 스케줄
         scheduleAutoConfirm(savedReport.getId(), 10);
 
@@ -69,6 +74,7 @@ public class EmergencyService {
      */
     @Async
     public void scheduleAutoConfirm(Long reportId, int secondsDelay) {
+        log.info("응급 신고 자동 확정 스케줄 등록: reportId={}, delay={}초", reportId, secondsDelay);
         taskScheduler.schedule(
                 () -> autoConfirm(reportId),
                 java.util.Date.from(java.time.Instant.now().plusSeconds(secondsDelay))
@@ -77,17 +83,24 @@ public class EmergencyService {
 
     @Transactional
     public void autoConfirm(Long reportId) {
+        log.info("응급 신고 자동 확정 실행: reportId={}", reportId);
+
         // LazyInitializationException 방지: User와 Admin까지 fetch
         EmergencyReport report = emergencyReportRepository.findByIdWithUserAndAdmin(reportId)
                 .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND));
 
         // 이미 취소되었으면 confirm하지 않음
-        if (report.getStatus() == EmergencyReport.ReportStatus.FALSE_ALARM) return;
+        if (report.getStatus() == EmergencyReport.ReportStatus.FALSE_ALARM) {
+            log.info("응급 신고가 이미 취소됨: reportId={}, status={}", reportId, report.getStatus());
+            return;
+        }
 
         report.confirm(); // confirm + 상태 변경
+        log.info("응급 신고 확정됨: reportId={}, status={}", reportId, report.getStatus());
 
         // WebSocket으로 관리자에게 알림 전송
         sendEmergencyAlert(report);
+        log.info("관리자에게 WebSocket 알림 전송 완료: reportId={}", reportId);
     }
 
     /**
@@ -105,12 +118,15 @@ public class EmergencyService {
      */
     @Transactional
     public EmergencyResponse cancelRecentReport(Long userId) {
+        log.info("응급 신고 취소 요청: userId={}", userId);
+
         EmergencyReport report = emergencyReportRepository
                 .findFirstByUserIdAndStatusOrderByReportedAtDesc(userId, EmergencyReport.ReportStatus.PENDING)
                 .orElseThrow(() -> new CustomException(ErrorCode.EMERGENCY_NOT_FOUND,
                         "취소할 응급 신고가 없습니다"));
 
         report.cancel();
+        log.info("응급 신고 취소됨: reportId={}, status={}", report.getId(), report.getStatus());
 
         return EmergencyResponse.from(report, "괜찮으시군요. 신고를 취소했습니다");
     }
@@ -159,6 +175,9 @@ public class EmergencyService {
 
         String destination = "/topic/admin/" + adminId + "/emergency";
 
+        log.info("WebSocket 알림 전송: destination={}, reportId={}, userId={}, adminId={}",
+                destination, report.getId(), report.getUser().getId(), adminId);
+
         // 특정 관리자에게만 전송
         messagingTemplate.convertAndSend(destination, message);
     }
@@ -178,11 +197,13 @@ public class EmergencyService {
 
     /**
      * 신고 목록 조회 (관리자)
+     * 모든 신고 조회 (PENDING, CONFIRMED, RESOLVED, FALSE_ALARM)
      */
-    public List<EmergencyResponse> getPendingReports() {
+    public List<EmergencyResponse> getConfirmedReports() {
         return emergencyReportRepository
-                .findByStatusOrderByReportedAtDesc(EmergencyReport.ReportStatus.PENDING)
+                .findAll()  // 모든 신고 조회
                 .stream()
+                .sorted((a, b) -> b.getReportedAt().compareTo(a.getReportedAt()))  // 최신순 정렬
                 .map(report -> EmergencyResponse.from(report, null))
                 .collect(Collectors.toList());
     }

@@ -136,8 +136,8 @@ public class CommandController {
             return new ResponseEntity<>(audioData, headers, HttpStatus.OK);
 
         } catch (CustomException e) {
-            log.error("음성 명령 처리 실패 (CustomException): errorCode={}, message={}",
-                    e.getErrorCode(), e.getMessage(), e);
+            log.info("음성 명령 처리: errorCode={}, message={}",
+                    e.getErrorCode(), e.getMessage());
 
             // CustomException의 ErrorCode에 따라 HTTP 상태 코드 결정
             HttpStatus httpStatus = e.getErrorCode().getStatus();

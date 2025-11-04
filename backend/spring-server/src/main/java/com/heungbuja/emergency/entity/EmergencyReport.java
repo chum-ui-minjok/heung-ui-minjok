@@ -55,6 +55,7 @@ public class EmergencyReport {
 
     public void confirm() {
         this.isConfirmed = true;
+        this.status = ReportStatus.CONFIRMED;
     }
 
     public void cancel() {
@@ -68,7 +69,8 @@ public class EmergencyReport {
     }
 
     public enum ReportStatus {
-        PENDING,        // 대기 중
+        PENDING,        // 대기 중 (10초 대기)
+        CONFIRMED,      // 확정됨 (관리자 처리 필요)
         RESOLVED,       // 처리 완료
         FALSE_ALARM     // 오탐
     }
