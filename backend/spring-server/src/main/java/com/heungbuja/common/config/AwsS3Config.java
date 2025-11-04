@@ -1,4 +1,4 @@
-package com.heungbuja.config;
+package com.heungbuja.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

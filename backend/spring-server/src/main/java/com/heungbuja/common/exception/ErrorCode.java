@@ -34,7 +34,10 @@ public enum ErrorCode {
 
     // Authorization
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden");
+    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+
+    // Media
+    MEDIA_NOT_FOUND(HttpStatus.NOT_FOUND, "Media not found");
 
     private final HttpStatus status;
     private final String message;

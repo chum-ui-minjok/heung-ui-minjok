@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "media")
@@ -20,10 +23,13 @@ public class Media {
     private String type;              // MUSIC / VIDEO
     private String s3Key;             // S3 경로 (예: music/song1.mp3)
     private String bucket;            // 버킷명
-    private String mimeType;          // 파일 형식
-    private Long sizeBytes;           // 파일 크기
     private Long uploaderId;          // 업로더 ID
 
-    @Column(updatable = false)
-    private java.time.LocalDateTime createdAt = java.time.LocalDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

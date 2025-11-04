@@ -1,5 +1,7 @@
 package com.heungbuja.s3.service;
 
+import com.heungbuja.common.exception.CustomException;
+import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.s3.entity.Media;
 import com.heungbuja.s3.repository.MediaRepository;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +33,7 @@ public class MediaUrlService {
      */
     public String issueUrlById(long mediaId) {
         Media media = mediaRepository.findById(mediaId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 media ID: " + mediaId));
+                .orElseThrow(() -> new CustomException(ErrorCode.MEDIA_NOT_FOUND, "존재하지 않는 media ID: " + mediaId));
 
         return issueUrlByKey(media.getS3Key());
     }
