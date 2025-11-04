@@ -75,6 +75,16 @@ public class SecurityConfig {
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
+        // 커스텀 응답 헤더를 브라우저에서 읽을 수 있도록 노출
+        configuration.setExposedHeaders(Arrays.asList(
+                "X-Success",
+                "X-Intent",
+                "X-Response-Text",
+                "X-Song-Title",
+                "X-Song-Artist",
+                "X-Error-Code"
+        ));
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

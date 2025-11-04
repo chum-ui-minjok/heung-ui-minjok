@@ -18,4 +18,7 @@ public class EmergencyRequest {
 
     @NotBlank(message = "Trigger word is required")
     private String triggerWord;
+
+    // 전체 발화 텍스트 (예: "흥부야 신고해줘")
+    private String fullText;
 }
