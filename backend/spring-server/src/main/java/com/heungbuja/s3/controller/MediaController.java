@@ -34,4 +34,11 @@ public class MediaController {
         String url = mediaUrlService.testPresignedUrl();
         return Map.of("url", url);
     }
+
+    // 로컬 테스트: DB 없이 고정 비디오 키로 프리사인드 URL 발급
+    @GetMapping("/test/video")
+    public Map<String, String> testVideoPresignedUrl() {
+        String url = mediaUrlService.testPresignedUrl("video/level3.mp4");
+        return Map.of("url", url);
+    }
 }
