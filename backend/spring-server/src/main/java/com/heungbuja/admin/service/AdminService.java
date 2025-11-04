@@ -96,7 +96,7 @@ public class AdminService {
         // 요청자가 SUPER_ADMIN인지 확인
         Admin requester = findById(requesterId);
         if (requester.getRole() != AdminRole.SUPER_ADMIN) {
-            throw new CustomException(ErrorCode.FORBIDDEN, "Only SUPER_ADMIN can view all admins");
+            throw new CustomException(ErrorCode.FORBIDDEN, "오직 슈퍼 어드민만이 모든 어드민을 볼 수 있습니다.");
         }
 
         return adminRepository.findAll().stream()

@@ -40,9 +40,9 @@ public class EmergencyController {
 
     // 관리자용 API
     @GetMapping("/admins/reports")
-    public ResponseEntity<List<EmergencyResponse>> getPendingReports(Authentication authentication) {
+    public ResponseEntity<List<EmergencyResponse>> getConfirmedReports(Authentication authentication) {
         // TODO: 관리자 권한 확인
-        List<EmergencyResponse> responses = emergencyService.getPendingReports();
+        List<EmergencyResponse> responses = emergencyService.getConfirmedReports();
         return ResponseEntity.ok(responses);
     }
 

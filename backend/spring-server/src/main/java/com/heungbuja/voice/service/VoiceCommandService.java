@@ -90,32 +90,24 @@ public class VoiceCommandService {
      * 노래 재생 처리
      */
     private VoiceCommandResponse handlePlaySong(Long commandId, String text) {
-        try {
-            // 텍스트에서 "틀어줘", "들려줘" 등 제거
-            String cleanQuery = text
-                    .replace("틀어줘", "")
-                    .replace("틀어", "")
-                    .replace("들려줘", "")
-                    .replace("들려", "")
-                    .replace("재생", "")
-                    .replace("해줘", "")
-                    .replace("해", "")
-                    .trim();
+        // 텍스트에서 "틀어줘", "들려줘" 등 제거
+        String cleanQuery = text
+                .replace("틀어줘", "")
+                .replace("틀어", "")
+                .replace("들려줘", "")
+                .replace("들려", "")
+                .replace("재생", "")
+                .replace("해줘", "")
+                .replace("해", "")
+                .trim();
 
-            // 곡 검색
-            Song song = songService.searchSong(cleanQuery);
-            SongResponse songResponse = SongResponse.from(song);
+        // 곡 검색 (CustomException 발생 시 그대로 던짐)
+        Song song = songService.searchSong(cleanQuery);
+        SongResponse songResponse = SongResponse.from(song);
 
-            String message = String.format("%s의 '%s'를 재생합니다", song.getArtist(), song.getTitle());
+        String message = String.format("%s의 '%s'를 재생합니다", song.getArtist(), song.getTitle());
 
-            return VoiceCommandResponse.playSong(commandId, songResponse, message);
-
-        } catch (Exception e) {
-            return VoiceCommandResponse.withMessage(
-                    commandId,
-                    "PLAY_SONG_FAILED",
-                    "죄송합니다. 노래를 찾을 수 없습니다");
-        }
+        return VoiceCommandResponse.playSong(commandId, songResponse, message);
     }
 
     /**

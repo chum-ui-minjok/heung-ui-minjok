@@ -23,6 +23,7 @@ public enum Intent {
 
     // 응급 상황
     EMERGENCY("응급 상황 감지"),
+    EMERGENCY_CANCEL("응급 상황 취소"),
 
     // 기타
     UNKNOWN("인식 불가");

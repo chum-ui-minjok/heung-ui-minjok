@@ -34,7 +34,20 @@ public enum ErrorCode {
 
     // Authorization
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden");
+    FORBIDDEN(HttpStatus.FORBIDDEN, "Forbidden"),
+
+    // Song
+    SONG_NOT_FOUND(HttpStatus.NOT_FOUND, "Song not found"),
+
+    // Voice & Command
+    STT_SERVICE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Speech-to-text service error"),
+    TTS_SERVICE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Text-to-speech service error"),
+    VOICE_RECOGNITION_FAILED(HttpStatus.BAD_REQUEST, "Voice recognition failed"),
+    INTENT_UNKNOWN(HttpStatus.BAD_REQUEST, "Unable to understand the command"),
+    COMMAND_EXECUTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Command execution failed"),
+
+    // Emergency
+    EMERGENCY_NOT_FOUND(HttpStatus.NOT_FOUND, "Emergency report not found");
 
     private final HttpStatus status;
     private final String message;
