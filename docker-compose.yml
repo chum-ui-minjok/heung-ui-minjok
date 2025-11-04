@@ -20,7 +20,11 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -50,6 +54,22 @@ services:
     restart: unless-stopped
     networks: [app-net]
 
+  redis:
+    image: redis:7-alpine # 경량화된 alpine 이미지 사용 추천
+    container_name: heungbuja-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+    networks: [app-net]
+
   spring:
     container_name: heungbuja-spring
     build:
@@ -59,8 +79,12 @@ services:
       - .env
     environment:
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "${SERVER_PORT:-8080}:8080"
@@ -127,7 +151,11 @@ services:
       - "80:80"
       - "443:443"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/nginx-health || curl -fsS http://localhost/nginx-health"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost/nginx-health || curl -fsS http://localhost/nginx-health",
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -159,5 +187,5 @@ volumes:
     driver: local
   mongo-data:
     driver: local
-
-
+  redis-data:
+    driver: local
