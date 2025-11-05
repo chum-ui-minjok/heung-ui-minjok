@@ -41,6 +41,9 @@ public class FrameBatchRequest {
     /** (이전 설계의 isLastBatchOfVerse1을 대체) 1절의 마지막 묶음인지 여부 */
     private boolean isLastSegmentOfVerse1;
 
+    /** 게임 전체의 마지막 묶음인지 여부 */
+    private boolean isLastSegmentOfGame;
+
     // [옵션]
     /** 2절일 경우, 사용자가 수행 중인 안무의 난이도 (1, 2, 3) */
     private Integer difficulty; // Integer 타입으로 하여 null 값을 허용

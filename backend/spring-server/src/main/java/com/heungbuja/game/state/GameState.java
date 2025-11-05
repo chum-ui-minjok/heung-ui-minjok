@@ -23,6 +23,9 @@ public class GameState implements Serializable {
     /** 2절의 각 묶음별 채점 결과를 저장하는 리스트 */
     private List<Double> verse2Scores;
 
+    /** AI 서버에서 분석이 완료된 총 묶음의 개수 (최대 12개) */
+    private int batchCompletedCount;
+
     /** 1절 종료 후 결정된 2절의 안무 레벨 */
     private Integer nextLevel;
 
@@ -36,6 +39,7 @@ public class GameState implements Serializable {
                 .songId(songId)
                 .verse1Scores(new ArrayList<>()) // 빈 리스트로 초기화
                 .verse2Scores(new ArrayList<>()) // 빈 리스트로 초기화
+                .batchCompletedCount(0) // 0으로 초기화
                 .build();
     }
 }

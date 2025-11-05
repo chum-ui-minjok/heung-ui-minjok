@@ -18,7 +18,13 @@ import com.heungbuja.user.repository.UserRepository;
 import com.heungbuja.game.repository.ActionRepository;
 import com.heungbuja.game.entity.GameResult;
 import com.heungbuja.game.repository.GameResultRepository;
+import com.heungbuja.game.factory.ScoringStrategyFactory;
+import com.heungbuja.game.strategy.ScoringStrategy;
+import com.heungbuja.game.enums.GameStatus;
+import com.heungbuja.common.exception.CustomException;
+import com.heungbuja.common.exception.ErrorCode;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -37,7 +43,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class GameService {
 
+    // --- 상수 정의 ---
+    /** 1절을 구성하는 총 세그먼트(묶음)의 수 */
+    private static final int VERSE_1_TOTAL_SEGMENTS = 6;
+    /** 게임 전체를 구성하는 총 세그먼트의 수 (1절 + 2절) */
+    private static final int GAME_TOTAL_SEGMENTS = 12;
+    /** 1절 마지막 요청 시, AI 응답을 기다리는 최대 시간 (초) */
+    private static final int MAX_WAIT_SECONDS_FOR_LEVEL_DECISION = 5;
+    /** Redis 세션 만료 시간 (분) */
+    private static final int SESSION_TIMEOUT_MINUTES = 30;
+
     // --- 의존성 주입 ---
+    private final ScoringStrategyFactory scoringStrategyFactory;
     private final UserRepository userRepository;
     private final SongRepository songRepository;
     private final SongBeatRepository songBeatRepository;
@@ -45,9 +62,7 @@ public class GameService {
     private final SongChoreographyRepository songChoreographyRepository;
     private final RedisTemplate<String, GameState> redisTemplate;
     private final WebClient webClient;
-    private final ActionRepository actionRepository;
     private final GameResultRepository gameResultRepository;
-    // (추가) private final GameResultRepository gameResultRepository; // MySQL 결과 저장을 위한 Repository
 
     /**
      * 1. 게임 시작 로직
@@ -56,32 +71,58 @@ public class GameService {
     public GameStartResponse startGame(GameStartRequest request) {
         // 1-1. User 정보 검증
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 ID입니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         if (!user.getIsActive()) {
-            throw new IllegalStateException("비활성화된 사용자입니다.");
+            throw new CustomException(ErrorCode.USER_NOT_ACTIVE);
         }
 
         // 1-2. MySQL에서 노래 기본 정보 조회
         Song song = songRepository.findById(request.getSongId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 노래 ID입니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
         String songTitle = song.getTitle();
 
-        // 1-3. MongoDB에서 노래 상세 메타데이터 조회 (병렬 처리로 성능 향상 가능)
-        Mono<SongBeat> beatInfoMono = Mono.fromCallable(() -> songBeatRepository.findByAudioTitle(songTitle).orElseThrow(() -> new IllegalArgumentException("비트 정보를 찾을 수 없습니다.")));
-        Mono<SongLyrics> lyricsInfoMono = Mono.fromCallable(() -> songLyricsRepository.findByTitle(songTitle).orElseThrow(() -> new IllegalArgumentException("가사 정보를 찾을 수 없습니다.")));
-        Mono<SongChoreography> choreographyInfoMono = Mono.fromCallable(() -> songChoreographyRepository.findBySong(songTitle).orElseThrow(() -> new IllegalArgumentException("안무 정보를 찾을 수 없습니다.")));
+        SongBeat beatInfo;
+        SongLyrics lyricsInfo;
+        SongChoreography choreographyInfo;
 
-        // 3개의 조회 작업이 모두 끝날 때까지 기다림
-        var resultTuple = Mono.zip(beatInfoMono, lyricsInfoMono, choreographyInfoMono).block();
-        SongBeat beatInfo = resultTuple.getT1();
-        SongLyrics lyricsInfo = resultTuple.getT2();
-        SongChoreography choreographyInfo = resultTuple.getT3();
+        // 1-3. MongoDB에서 노래 상세 메타데이터 조회 (병렬 처리로 성능 향상 가능)
+        try {
+            // 3개의 조회 작업을 각각 Mono로 감싸서 비동기 실행 준비
+            Mono<SongBeat> beatInfoMono = Mono.fromCallable(() ->
+                    songBeatRepository.findByAudioTitle(songTitle)
+                            .orElseThrow(() -> new RuntimeException("Beat info not found"))
+            );
+
+            Mono<SongLyrics> lyricsInfoMono = Mono.fromCallable(() ->
+                    songLyricsRepository.findByTitle(songTitle)
+                            .orElseThrow(() -> new RuntimeException("Lyrics info not found"))
+            );
+
+            Mono<SongChoreography> choreographyInfoMono = Mono.fromCallable(() ->
+                    songChoreographyRepository.findBySong(songTitle)
+                            .orElseThrow(() -> new RuntimeException("Choreography info not found"))
+            );
+
+            // Mono.zip: 3개의 작업이 모두 끝날 때까지 기다렸다가, 결과를 튜플(Tuple) 형태로 한번에 받음
+            var resultTuple = Mono.zip(beatInfoMono, lyricsInfoMono, choreographyInfoMono).block();
+
+            // 튜플에서 각 결과를 꺼내어 변수에 할당
+            beatInfo = resultTuple.getT1();
+            lyricsInfo = resultTuple.getT2();
+            choreographyInfo = resultTuple.getT3();
+
+        } catch (Exception e) {
+            // Mono.zip 실행 중 orElseThrow가 호출되어 RuntimeException이 발생하면 catch 블록으로 들어옴
+            log.error("게임 시작에 필요한 메타데이터 조회 실패. songTitle={}", songTitle, e);
+            // MongoDB에서 하나라도 데이터를 못 찾으면 GAME_METADATA_NOT_FOUND 에러 발생
+            throw new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND);
+        }
 
         // 1-4. 게임 세션 ID 생성 및 Redis에 초기 상태 저장
         String sessionId = UUID.randomUUID().toString();
         GameState initialGameState = GameState.initial(sessionId, user.getId(), song.getId());
-        redisTemplate.opsForValue().set(sessionId, initialGameState, Duration.ofMinutes(30)); // 30분 후 세션 만료
+        redisTemplate.opsForValue().set(sessionId, initialGameState, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
         log.info("새로운 게임 세션 시작: userId={}, sessionId={}", user.getId(), sessionId);
 
         // 1-5. 프론트엔드에 필요한 모든 정보를 담아 응답
@@ -101,109 +142,143 @@ public class GameService {
         String sessionId = request.getSessionId();
         GameState currentGameState = getGameState(sessionId);
 
-        // 요청 데이터 검증 로직
+        // 요청 데이터 논리 검사 (오류 상태 처리)
         if (!currentGameState.getSongId().equals(request.getSongId())) {
             log.warn("세션ID와 노래ID가 일치하지 않습니다! sessionId={}, gameState.songId={}, request.songId={}",
                     sessionId, currentGameState.getSongId(), request.getSongId());
-            throw new IllegalArgumentException("세션 정보와 노래 정보가 일치하지 않습니다.");
+            throw new CustomException(ErrorCode.GAME_SESSION_INVALID);
         }
 
-        // 2-1. Python AI 서버로 분석 요청 (비동기)
+        // Python AI 서버로 분석 요청 (비동기)
         callAiServerAndProcessResult(currentGameState, request);
 
-        // 2-2. 1절의 마지막 묶음 요청인 경우, 레벨 결정 로직 수행
+        // 1절 종료 시 레벨 결정
         if (request.getVerse() == 1 && request.isLastSegmentOfVerse1()) {
-            // (개선) 모든 AI 응답이 도착했는지 확인하는 더 정교한 로직이 필요할 수 있지만,
-            // 우선은 현재까지 Redis에 쌓인 점수 기준으로 즉시 레벨을 결정하여 응답합니다.
-            double averageScore = calculateAverageScore(currentGameState.getVerse1Scores());
-
-            int nextLevel = 1;
-            if (averageScore >= 80) {
-                nextLevel = 3;
-            } else if (averageScore >= 60) {
-                nextLevel = 2;
+            // 모든 AI 분석이 완료될 때까지 최대 MAX_WAIT_SECONDS_FOR_LEVEL_DECISION (5)초간 기다림 (Polling 방식)
+            for (int i = 0; i < MAX_WAIT_SECONDS_FOR_LEVEL_DECISION; i++) {
+                GameState latestState = getGameState(sessionId);
+                if (latestState.getBatchCompletedCount() >= VERSE_1_TOTAL_SEGMENTS) {
+                    // 모든 결과가 도착했으면 레벨 결정
+                    return decideLevelAndRespond(sessionId, latestState);
+                }
+                try {
+                    Thread.sleep(1000); // 1초 대기 후 다시 확인
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR, "레벨 결정 대기 중 오류 발생");
+                }
             }
-
-            currentGameState.setNextLevel(nextLevel);
-            saveGameState(sessionId, currentGameState);
-            log.info("세션 {}의 1절 종료. 평균 점수: {}, 다음 레벨: {}", sessionId, averageScore, nextLevel);
-
-            return new FrameBatchResponse("LEVEL_DECIDED", nextLevel);
+            // 설정된 시간을 기다려도 모든 결과가 오지 않은 경우
+            log.warn("세션 {}의 1절 분석이 {}초 내에 완료되지 않았습니다. 현재까지의 점수로 레벨을 결정합니다.",
+                    sessionId, MAX_WAIT_SECONDS_FOR_LEVEL_DECISION);
+            return decideLevelAndRespond(sessionId, getGameState(sessionId));
         }
 
 
-        // 2-3. 일반적인 경우, 처리 중이라는 응답만 보냄
-        return new FrameBatchResponse("PROCESSING", null);
+        // 4. 2절 종료 시 게임 종료 알림 (새로운 로직)
+        if (request.isLastSegmentOfGame()) {
+            log.info("세션 {}의 마지막 묶음 요청 접수. 게임 종료 처리 예정.", sessionId);
+            // 이 요청 또한 AI 분석이 끝나야 GAME_OVER가 확정되지만, 우선은 즉시 응답
+            return new FrameBatchResponse(GameStatus.GAME_OVER, null);
+        }
+
+        // 5. 일반적인 경우
+        return new FrameBatchResponse(GameStatus.ACCEPTED, null);
     }
 
     /**
-     * 3. Python AI 서버 호출 및 결과 처리 (채점 로직 포함)
+     * 레벨을 결정하고 응답을 생성하는 헬퍼 메소드
+     */
+    private FrameBatchResponse decideLevelAndRespond(String sessionId, GameState gameState) {
+        double averageScore = calculateAverageScore(gameState.getVerse1Scores());
+        int nextLevel = determineLevel(averageScore);
+
+        gameState.setNextLevel(nextLevel);
+        saveGameState(sessionId, gameState);
+        log.info("세션 {}의 1절 종료. 평균 점수: {}, 다음 레벨: {}", sessionId, averageScore, nextLevel);
+
+        return new FrameBatchResponse(GameStatus.LEVEL_DECIDED, nextLevel);
+    }
+
+
+    /**
+     * 3. Python AI 서버 호출 및 결과 처리
      */
     private void callAiServerAndProcessResult(GameState gameState, FrameBatchRequest request) {
         String sessionId = gameState.getSessionId();
 
-        // AI 서버가 {"action_codes": [0, 1, 0, 1, ...]} 형태로 동작 번호를 반환한다고 가정
         // webClient.post()
-        //         .uri("http://motion-server:8000/analyze") // docker-compose 서비스 이름 사용
-        //         .bodyValue(request) // request 객체 전체를 보낼 수도 있음
+        //         .uri("http://motion-server:8000/analyze")
+        //         .bodyValue(request)
         //         .retrieve()
         //         .bodyToMono(AiResponse.class)
-        //         .subscribe(aiResponse -> {
-        //             log.info("세션 {}의 분석 결과 도착: {}", sessionId, aiResponse.getActionCodes());
+        //         .subscribe(
+        //             // --- 1. 성공 시 콜백 ---
+        //             aiResponse -> {
+        //                 log.info("세션 {}의 분석 결과 도착: {}", sessionId, aiResponse.getActionCodes());
         //
-        //             // 4. 채점 진행
-        //             double score = grade(gameState.getSongId(), request.getVerse(), request.getSegmentIndex(),
-        //                                  request.getDifficulty(), aiResponse.getActionCodes());
+        //                 ScoringStrategy strategy = scoringStrategyFactory.createStrategy(request.getVerse(), request.getDifficulty());
+        //                 List<Integer> correctActionCodes = findCorrectActionsFromDB(gameState.getSongId(), request.getVerse(), request.getSegmentIndex());
+        //                 double score = strategy.grade(aiResponse.getActionCodes(), correctActionCodes);
         //
-        //             // 5. 채점 결과 Redis에 저장
-        //             GameState currentState = getGameState(sessionId);
-        //             if (request.getVerse() == 1) {
-        //                 currentState.getVerse1Scores().add(score);
-        //             } else {
-        //                 currentState.getVerse2Scores().add(score);
+        //                 // 성공했으므로, 계산된 점수로 상태 업데이트
+        //                 updateGameState(sessionId, request.getVerse(), score);
+        //             },
+        //
+        //             // --- ▼ 2. 실패 시 콜백 (핵심 수정) ▼ ---
+        //             error -> {
+        //                 log.error("AI 서버 호출 또는 분석 실패 (세션 {}): {}", sessionId, error.getMessage());
+        //
+        //                 // AI 분석에 실패했으므로, 해당 묶음의 점수를 0점으로 처리
+        //                 updateGameState(sessionId, request.getVerse(), 0.0);
         //             }
-        //             saveGameState(sessionId, currentState);
-        //             log.info("세션 {}의 {}절-{}번째 묶음 채점 완료. 점수: {}",
-        //                      sessionId, request.getVerse(), request.getSegmentIndex(), score);
-        //
-        //         }, error -> log.error("AI 서버 호출 중 에러 발생 (세션 {}): {}", sessionId, error.getMessage()));
+        //         );
 
         log.info("세션 {}의 {}절-{}번째 이미지 묶음을 AI 서버로 전송했습니다.",
                 sessionId, request.getVerse(), request.getSegmentIndex());
     }
 
     /**
-     * 4. 채점 로직
-     * @param songId 현재 노래 ID
-     * @param verse 현재 절 (1 또는 2)
-     * @param segmentIndex 현재 묶음 인덱스
-     * @param difficulty 2절일 경우의 난이도
-     * @param userActionCodes AI가 분석한 사용자 동작 번호 리스트
-     * @return 0~100점 사이의 점수
+     * Redis의 GameState를 업데이트하는 헬퍼 메소드
+     * @param sessionId 현재 세션 ID
+     * @param verse 현재 절
+     * @param score 이번 묶음의 점수 (성공 시 계산된 점수, 실패 시 0.0)
      */
-    private double grade(Long songId, int verse, int segmentIndex, Integer difficulty, List<Integer> userActionCodes) {
-        // TODO: songId, verse 등을 기반으로 MongoDB에서 '정답' 동작 코드 리스트를 가져오는 로직 구현
-        // List<Integer> correctActionCodes = findCorrectActionsFromDB(songId, verse, difficulty, segmentIndex);
+    private void updateGameState(String sessionId, int verse, double score) {
+        // (주의) 이 부분은 여전히 동시성 문제에 취약합니다.
+        // 나중에 Redis의 원자적 연산을 사용하여 개선해야 합니다.
+        GameState currentState = getGameState(sessionId);
 
-        List<Integer> correctActionCodes = List.of(0, 0, 1, 1, 1, 1); // 임시 정답지
-
-        // (참고) 만약 점수 외에 "틀린 동작 이름" 같은 정보를 알려주고 싶다면,
-        // actionRepository를 사용하여 코드로부터 동작 이름을 조회할 수 있습니다.
-        // ex: Action wrongAction = actionRepository.findByActionCode(userActionCodes.get(i)).orElse(null);
-
-        int correctCount = 0;
-        int totalActions = correctActionCodes.size();
-        for (int i = 0; i < totalActions; i++) {
-            if (i < userActionCodes.size() && correctActionCodes.get(i).equals(userActionCodes.get(i))) {
-                correctCount++;
-            }
+        if (verse == 1) {
+            currentState.getVerse1Scores().add(score);
+        } else {
+            currentState.getVerse2Scores().add(score);
         }
 
-        return (double) correctCount / totalActions * 100.0;
+        // 성공하든 실패하든, "하나의 묶음에 대한 처리가 끝났으므로" 카운터를 1 증가시킴
+        currentState.setBatchCompletedCount(currentState.getBatchCompletedCount() + 1);
+
+        saveGameState(sessionId, currentState);
+        log.info("세션 {}의 게임 상태 업데이트 완료. 점수: {}, 완료된 묶음 수: {}",
+                sessionId, score, currentState.getBatchCompletedCount());
     }
 
     /**
-     * (추가) 게임 종료 및 결과 저장
+     * 정답지 조회 메소드 (뼈대)
+     * TODO: 이 메소드의 내용을 실제 MongoDB 조회 로직으로 채워야 합니다.
+     */
+    private List<Integer> findCorrectActionsFromDB(Long songId, int verse, int segmentIndex) {
+        // 1. songId로 SongChoreography 정보를 찾습니다.
+        // 2. verse와 segmentIndex에 해당하는 안무 블록(block)을 찾습니다.
+        // 3. 해당 블록에 미리 정의된 '정답 동작 코드 리스트'를 반환합니다.
+
+        // 아래는 임시 하드코딩된 정답지입니다.
+        log.warn("정답지 조회 로직이 구현되지 않았습니다. 임시 정답지를 사용합니다.");
+        return List.of(0, 0, 1, 1, 0, 0);
+    }
+
+    /**
+     * 게임 종료 및 결과 저장
      */
     @Transactional // DB에 데이터를 쓰는 작업이므로 @Transactional 어노테이션 추가
     public void endGame(String sessionId) {
@@ -220,9 +295,9 @@ public class GameService {
 
         // 2. GameResult 엔티티 생성을 위해 User와 Song 엔티티를 DB에서 조회
         User user = userRepository.findById(finalGameState.getUserId())
-                .orElseThrow(() -> new IllegalStateException("게임 결과 저장 중 사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "게임 결과 저장 중 사용자를 찾을 수 없습니다."));
         Song song = songRepository.findById(finalGameState.getSongId())
-                .orElseThrow(() -> new IllegalStateException("게임 결과 저장 중 노래를 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND, "게임 결과 저장 중 노래를 찾을 수 없습니다."));
 
         // 3. GameResult 엔티티 객체 생성
         GameResult gameResult = GameResult.builder()
@@ -245,15 +320,21 @@ public class GameService {
 
     // --- Helper 메소드들 ---
     private GameState getGameState(String sessionId) {
+        // 1. Redis 조회 결과를 'gameState'라는 변수에 먼저 저장합니다.
         GameState gameState = redisTemplate.opsForValue().get(sessionId);
+
+        // 2. 변수가 null인지 확인합니다.
         if (gameState == null) {
-            throw new IllegalArgumentException("만료되었거나 유효하지 않은 세션 ID입니다: " + sessionId);
+            // 3. null이면 예외를 발생시키고 메소드를 종료합니다.
+            throw new CustomException(ErrorCode.GAME_SESSION_NOT_FOUND);
         }
+
+        // 4. null이 아니면, 변수에 담긴 값을 반환합니다.
         return gameState;
     }
 
     private void saveGameState(String sessionId, GameState gameState) {
-        redisTemplate.opsForValue().set(sessionId, gameState, Duration.ofMinutes(30));
+        redisTemplate.opsForValue().set(sessionId, gameState, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
     }
 
     private double calculateAverageScore(List<Double> scores) {
@@ -263,9 +344,19 @@ public class GameService {
         return scores.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
     }
 
-    // (추가) AI 서버의 응답을 받을 DTO
-    // @Getter
-    // private static class AiResponse {
-    //     private List<String> actions;
-    // }
+    // 점수 기반 레벨 결정 로직 분리
+    private int determineLevel(double averageScore) {
+        if (averageScore >= 80) {
+            return 3;
+        } else if (averageScore >= 60) {
+            return 2;
+        }
+        return 1;
+    }
+
+    // AI 서버의 응답을 받을 내부 DTO 클래스
+    @Getter
+    private static class AiResponse {
+        private List<Integer> actionCodes;
+    }
 }
