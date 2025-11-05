@@ -47,7 +47,10 @@ public enum ErrorCode {
     COMMAND_EXECUTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "Command execution failed"),
 
     // Emergency
-    EMERGENCY_NOT_FOUND(HttpStatus.NOT_FOUND, "Emergency report not found");
+    EMERGENCY_NOT_FOUND(HttpStatus.NOT_FOUND, "Emergency report not found"),
+
+    // Media
+    MEDIA_NOT_FOUND(HttpStatus.NOT_FOUND, "Media not found");
 
     private final HttpStatus status;
     private final String message;
