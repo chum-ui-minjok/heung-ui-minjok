@@ -35,6 +35,13 @@ dependencies {
 	implementation platform("software.amazon.awssdk:bom:2.25.66")
 	implementation "software.amazon.awssdk:s3"
 
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+	// Mongo DB
+	implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+
+	// Redis
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
