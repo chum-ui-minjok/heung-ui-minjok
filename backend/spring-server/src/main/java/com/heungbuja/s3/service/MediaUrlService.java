@@ -79,4 +79,9 @@ public class MediaUrlService {
         return presignedRequest.url().toString();
     }
 
+    // 임의의 S3 key를 받아 프리사인드 URL 발급(로컬 테스트용)
+    public String testPresignedUrl(String s3Key) {
+        return issueUrlByKey(s3Key);
+    }
+
 }

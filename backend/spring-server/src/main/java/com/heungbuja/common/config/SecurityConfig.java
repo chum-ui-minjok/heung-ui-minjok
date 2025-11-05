@@ -36,7 +36,7 @@ public class SecurityConfig {
                         .requestMatchers("/admins/register", "/admins/login").permitAll()
                         .requestMatchers("/auth/device", "/auth/refresh").permitAll()
                         .requestMatchers("/health").permitAll()
-                        .requestMatchers("/media/test").permitAll()
+                        .requestMatchers("/media/test", "/media/test/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
 
                         // Voice & Emergency & Commands (Public - 웹앱에서 직접 호출)
