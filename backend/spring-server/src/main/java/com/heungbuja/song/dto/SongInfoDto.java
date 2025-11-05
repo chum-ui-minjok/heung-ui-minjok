@@ -20,18 +20,20 @@ public class SongInfoDto {
     private Long songId;
     private String title;
     private String artist;
-    private String audioUrl;
+    private Long mediaId;
+    private String audioUrl;  // presigned URL (서비스에서 생성)
     private PlaybackMode mode; // 감상 or 체조 모드
 
     /**
-     * Song Entity → DTO 변환
+     * Song Entity → DTO 변환 (audioUrl은 서비스에서 설정)
      */
-    public static SongInfoDto from(Song song, PlaybackMode mode) {
+    public static SongInfoDto from(Song song, PlaybackMode mode, String presignedUrl) {
         return SongInfoDto.builder()
                 .songId(song.getId())
                 .title(song.getTitle())
                 .artist(song.getArtist())
-                .audioUrl(song.getS3Url())
+                .mediaId(song.getMedia().getId())
+                .audioUrl(presignedUrl)
                 .mode(mode)
                 .build();
     }

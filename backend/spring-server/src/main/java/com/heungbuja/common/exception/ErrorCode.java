@@ -11,6 +11,7 @@ public enum ErrorCode {
     // Common
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "Invalid input value"),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error"),
+    EXTERNAL_API_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "External API error"),
 
     // Admin
     ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "Admin not found"),

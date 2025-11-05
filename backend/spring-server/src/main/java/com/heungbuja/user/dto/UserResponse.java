@@ -8,6 +8,7 @@ import lombok.Getter;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Builder
@@ -25,6 +26,7 @@ public class UserResponse {
     private Long adminId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<RecentActivityDto> recentActivities;  // 최근 활동 내역
 
     public static UserResponse from(User user) {
         return UserResponse.builder()
