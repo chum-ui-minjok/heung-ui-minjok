@@ -1,5 +1,6 @@
 package com.heungbuja.song.entity;
 
+import com.heungbuja.s3.entity.Media;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -25,8 +26,9 @@ public class Song {
     @Column(nullable = false, length = 100)
     private String artist;
 
-    @Column(name = "s3_url", nullable = false, length = 500)
-    private String s3Url;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "media_id", nullable = false)
+    private Media media;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -34,22 +34,31 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
     private static final List<String> NEXT_KEYWORDS = Arrays.asList("다음", "건너뛰기", "스킵", "넘겨");
     private static final List<String> STOP_KEYWORDS = Arrays.asList("그만", "종료", "끝");
 
-    // 모드 키워드
-    private static final List<String> LISTENING_START_KEYWORDS = Arrays.asList(
-            "노래 들려줘", "음악 틀어줘", "노래 듣고 싶어", "음악 듣고 싶어"
+    // 모드 키워드 (단순화)
+    private static final List<String> HOME_KEYWORDS = Arrays.asList(
+            "홈으로", "홈 화면", "처음으로", "메인으로", "돌아가"
     );
-    private static final List<String> EXERCISE_START_KEYWORDS = Arrays.asList(
-            "체조하고 싶어", "운동할래", "체조할래", "같이 운동해줘"
+    private static final List<String> LISTENING_KEYWORDS = Arrays.asList(
+            "노래 들려줘", "음악 틀어줘", "노래 듣고 싶어", "음악 듣고 싶어", "감상 모드", "감상으로"
     );
-    private static final List<String> SWITCH_TO_LISTENING = Arrays.asList(
-            "그냥 듣기만 할래", "감상으로 바꿔줘", "감상 모드"
+    private static final List<String> EXERCISE_KEYWORDS = Arrays.asList(
+            "체조 시작", "체조하고 싶어", "운동할래", "체조할래", "같이 운동해줘", "체조 모드", "운동 모드"
     );
-    private static final List<String> SWITCH_TO_EXERCISE = Arrays.asList(
-            "체조로 바꿔줘", "운동 모드", "체조 모드"
+    private static final List<String> EXERCISE_END_KEYWORDS = Arrays.asList(
+            "체조 종료", "체조 끝", "운동 그만", "체조 그만"
+    );
+
+    // 연속 재생 키워드
+    private static final List<String> CONTINUE_PLAYING_KEYWORDS = Arrays.asList(
+            "계속 들려줘", "계속 틀어줘", "이어서", "계속"
+    );
+    private static final List<String> MORE_LIKE_THIS_KEYWORDS = Arrays.asList(
+            "비슷한 노래", "이런 노래", "같은 느낌"
     );
 
     @Override
-    public IntentResult classify(String text) {
+    public IntentResult classify(String text, Long userId) {
+        // 키워드 기반 분석은 userId를 사용하지 않음
         String normalized = text.trim().toLowerCase();
 
         log.debug("의도 분석 시작: text='{}'", normalized);
@@ -86,27 +95,35 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
             return IntentResult.of(Intent.MUSIC_STOP);
         }
 
-        // 4. 모드 전환/시작
-        if (containsAny(normalized, LISTENING_START_KEYWORDS)) {
-            return IntentResult.of(Intent.MODE_LISTENING_START);
+        // 4. 연속 재생
+        if (containsAny(normalized, CONTINUE_PLAYING_KEYWORDS)) {
+            return IntentResult.of(Intent.PLAY_NEXT_IN_QUEUE);
         }
-        if (containsAny(normalized, EXERCISE_START_KEYWORDS)) {
-            return IntentResult.of(Intent.MODE_EXERCISE_START);
-        }
-        if (containsAny(normalized, SWITCH_TO_LISTENING)) {
-            return IntentResult.of(Intent.MODE_SWITCH_TO_LISTENING);
-        }
-        if (containsAny(normalized, SWITCH_TO_EXERCISE)) {
-            return IntentResult.of(Intent.MODE_SWITCH_TO_EXERCISE);
+        if (containsAny(normalized, MORE_LIKE_THIS_KEYWORDS)) {
+            return IntentResult.of(Intent.PLAY_MORE_LIKE_THIS);
         }
 
-        // 5. 노래 검색 (가수 + 제목 패턴)
+        // 5. 모드 관련 (단순화)
+        if (containsAny(normalized, HOME_KEYWORDS)) {
+            return IntentResult.of(Intent.MODE_HOME);
+        }
+        if (containsAny(normalized, LISTENING_KEYWORDS)) {
+            return IntentResult.of(Intent.MODE_LISTENING);
+        }
+        if (containsAny(normalized, EXERCISE_KEYWORDS)) {
+            return IntentResult.of(Intent.MODE_EXERCISE);
+        }
+        if (containsAny(normalized, EXERCISE_END_KEYWORDS)) {
+            return IntentResult.of(Intent.MODE_EXERCISE_END);
+        }
+
+        // 6. 노래 검색 (가수 + 제목 패턴)
         IntentResult songIntent = detectSongSearchIntent(normalized);
         if (songIntent != null) {
             return songIntent;
         }
 
-        // 6. 인식 불가
+        // 7. 인식 불가
         return IntentResult.of(Intent.UNKNOWN);
     }
 

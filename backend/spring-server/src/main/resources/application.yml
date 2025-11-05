@@ -62,6 +62,13 @@ openai:
     tts:
       url: https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/speech
 
+# GPT API 설정 (gpt-5-nano)
+gpt:
+  api:
+    url: https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions
+    key: ${OPENAI_GMS_API_KEY:your-gms-api-key-here}
+  model: gpt-5-nano
+
 app:
   s3:
     bucket: ${APP_S3_BUCKET:heungbuja-bucket}

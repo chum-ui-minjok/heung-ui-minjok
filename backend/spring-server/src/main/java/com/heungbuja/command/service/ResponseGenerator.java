@@ -31,11 +31,15 @@ public class ResponseGenerator {
             case MUSIC_NEXT -> "다음 곡을 재생할게요";
             case MUSIC_STOP -> "종료할게요";
 
-            // 모드 관련
-            case MODE_LISTENING_START -> "어떤 노래를 들려드릴까요?";
-            case MODE_EXERCISE_START -> "어떤 노래로 체조하실까요?";
-            case MODE_SWITCH_TO_LISTENING -> "감상 모드로 바꿀게요";
-            case MODE_SWITCH_TO_EXERCISE -> "체조 모드로 바꿀게요";
+            // 연속 재생
+            case PLAY_NEXT_IN_QUEUE -> "다음 곡을 재생할게요";
+            case PLAY_MORE_LIKE_THIS -> "비슷한 노래를 계속 들려드릴게요";
+
+            // 모드 관련 (단순화)
+            case MODE_HOME -> "홈 화면으로 돌아갈게요";
+            case MODE_LISTENING -> "어떤 노래를 들려드릴까요?";
+            case MODE_EXERCISE -> "체조를 시작할게요. 함께 운동해봐요!";
+            case MODE_EXERCISE_END -> "수고하셨어요! 체조를 종료할게요";
 
             // 응급 상황
             case EMERGENCY -> "괜찮으세요? 대답해주세요!";
