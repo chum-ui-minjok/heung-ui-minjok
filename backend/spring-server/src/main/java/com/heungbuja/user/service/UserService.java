@@ -5,6 +5,7 @@ import com.heungbuja.admin.service.AdminService;
 import com.heungbuja.device.entity.Device;
 import com.heungbuja.device.entity.Device.DeviceStatus;
 import com.heungbuja.device.service.DeviceService;
+import com.heungbuja.user.dto.RecentActivityDto;
 import com.heungbuja.user.dto.UserRegisterRequest;
 import com.heungbuja.user.dto.UserResponse;
 import com.heungbuja.user.dto.UserUpdateRequest;
@@ -12,6 +13,8 @@ import com.heungbuja.user.entity.User;
 import com.heungbuja.user.repository.UserRepository;
 import com.heungbuja.common.exception.CustomException;
 import com.heungbuja.common.exception.ErrorCode;
+import com.heungbuja.voice.entity.VoiceCommand;
+import com.heungbuja.voice.repository.VoiceCommandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final DeviceService deviceService;
     private final AdminService adminService;
+    private final VoiceCommandRepository voiceCommandRepository;
 
     @Transactional
     public UserResponse registerUser(Long adminId, UserRegisterRequest request) {
@@ -71,8 +75,36 @@ public class UserService {
         // 접근 권한 확인
         adminService.validateAdminAccess(requesterId, adminId);
         return userRepository.findByAdminId(adminId).stream()
-                .map(UserResponse::from)
+                .map(this::enrichWithRecentActivities)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * User에 최근 활동 정보 추가
+     */
+    private UserResponse enrichWithRecentActivities(User user) {
+        // 최근 3개의 음성 명령 조회
+        List<VoiceCommand> recentCommands = voiceCommandRepository
+                .findTop3ByUserIdOrderByCreatedAtDesc(user.getId());
+
+        List<RecentActivityDto> activities = recentCommands.stream()
+                .map(RecentActivityDto::from)
+                .collect(Collectors.toList());
+
+        return UserResponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .birthDate(user.getBirthDate())
+                .gender(user.getGender())
+                .medicalNotes(user.getMedicalNotes())
+                .emergencyContact(user.getEmergencyContact())
+                .deviceId(user.getDevice() != null ? user.getDevice().getId() : null)
+                .isActive(user.getIsActive())
+                .adminId(user.getAdmin().getId())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .recentActivities(activities)
+                .build();
     }
 
     public List<UserResponse> getActiveUsersByAdmin(Long requesterId, Long adminId) {

@@ -15,4 +15,7 @@ public interface VoiceCommandRepository extends JpaRepository<VoiceCommand, Long
 
     // 특정 기간의 음성 명령 조회
     List<VoiceCommand> findByUserIdAndCreatedAtBetween(Long userId, LocalDateTime start, LocalDateTime end);
+
+    // 특정 어르신의 최근 N개 음성 명령 조회
+    List<VoiceCommand> findTop3ByUserIdOrderByCreatedAtDesc(Long userId);
 }
