@@ -172,7 +172,7 @@ services:
     entrypoint: >
       sh -c "certbot certonly --webroot \
       --webroot-path=/var/www/certbot \
-      --email your@email.com \
+      --email leeduddn98@gmail.com \
       --agree-tos \
       --no-eff-email \
       -d heungbuja.site -d www.heungbuja.site"
