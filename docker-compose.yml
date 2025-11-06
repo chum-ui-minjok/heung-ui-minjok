@@ -175,7 +175,7 @@ services:
       --email your@email.com \
       --agree-tos \
       --no-eff-email \
-      -d k13a103.p.ssafy.io"
+      -d heungbuja.site -d www.heungbuja.site"
     networks: [app-net]
 
 networks:
