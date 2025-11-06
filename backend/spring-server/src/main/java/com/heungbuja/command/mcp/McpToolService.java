@@ -102,15 +102,25 @@ public class McpToolService {
 
         // 노래 검색 (현재는 기본 검색만, 향후 era, genre, mood 활용 가능)
         Song song;
-        if (artist != null && title != null) {
-            song = songService.searchByArtistAndTitle(artist, title);
-        } else if (artist != null) {
-            song = songService.searchByArtist(artist);
-        } else if (title != null) {
-            song = songService.searchByTitle(title);
-        } else {
-            // TODO: era, genre, mood 기반 검색 구현
-            throw new IllegalArgumentException("artist 또는 title이 필요합니다");
+        try {
+            if (artist != null && title != null) {
+                song = songService.searchByArtistAndTitle(artist, title);
+            } else if (artist != null) {
+                song = songService.searchByArtist(artist);
+            } else if (title != null) {
+                song = songService.searchByTitle(title);
+            } else {
+                // TODO: era, genre, mood 기반 검색 구현
+                throw new IllegalArgumentException("artist 또는 title이 필요합니다");
+            }
+        } catch (CustomException e) {
+            // 노래를 찾지 못한 경우 간단한 로그만 출력
+            log.warn("노래 없음: artist={}, title={}", artist, title);
+            return McpToolResult.failure(
+                    toolCall.getId(),
+                    toolCall.getName(),
+                    "노래를 찾을 수 없습니다"
+            );
         }
 
         // excludeSongId 체크
