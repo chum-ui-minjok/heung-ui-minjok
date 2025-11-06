@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 /**
  * 통합 명령 응답 DTO
  */
@@ -25,6 +27,8 @@ public class CommandResponse {
     private String ttsAudioUrl; // TTS 음성 파일 URL
 
     private SongInfoDto songInfo; // 노래 정보 (노래 재생 시)
+
+    private ScreenTransition screenTransition; // 화면 전환 정보 (MCP 전용)
 
     /**
      * 성공 응답 생성
@@ -62,5 +66,30 @@ public class CommandResponse {
                 .responseText(responseText)
                 .ttsAudioUrl(ttsAudioUrl)
                 .build();
+    }
+
+    /**
+     * 화면 전환 정보 (MCP 전용)
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ScreenTransition {
+        /**
+         * 이동할 화면 경로 (예: "/game", "/listening", "/home")
+         */
+        private String targetScreen;
+
+        /**
+         * 화면 전환 액션 (예: "START_GAME", "PLAY_SONG", "GO_HOME")
+         */
+        private String action;
+
+        /**
+         * 화면 전환에 필요한 추가 데이터
+         * 예: sessionId, audioUrl, beatInfo 등
+         */
+        private Map<String, Object> data;
     }
 }
