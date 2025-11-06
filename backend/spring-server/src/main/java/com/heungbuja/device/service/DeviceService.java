@@ -51,10 +51,20 @@ public class DeviceService {
         return DeviceResponse.from(device);
     }
 
-    public List<DeviceResponse> getDevicesByAdmin(Long requesterId, Long adminId) {
+    public List<DeviceResponse> getDevicesByAdmin(Long requesterId, Long adminId, boolean availableOnly) {
         // 접근 권한 확인
         adminService.validateAdminAccess(requesterId, adminId);
-        return deviceRepository.findByAdminId(adminId).stream()
+
+        List<Device> devices = deviceRepository.findByAdminId(adminId);
+
+        // availableOnly가 true면 userId가 null인 (연결되지 않은) 기기만 필터링
+        if (availableOnly) {
+            devices = devices.stream()
+                    .filter(device -> device.getUser() == null)
+                    .collect(Collectors.toList());
+        }
+
+        return devices.stream()
                 .map(DeviceResponse::from)
                 .collect(Collectors.toList());
     }

@@ -42,12 +42,13 @@ public class DeviceController {
     @GetMapping
     public ResponseEntity<List<DeviceResponse>> getDevices(
             Authentication authentication,
-            @RequestParam(required = false) Long adminId) {
+            @RequestParam(required = false) Long adminId,
+            @RequestParam(required = false, defaultValue = "false") boolean availableOnly) {
         Long requesterId = (Long) authentication.getPrincipal();
 
         // adminId가 없으면 본인의 기기만 조회
         Long targetAdminId = adminId != null ? adminId : requesterId;
-        List<DeviceResponse> responses = deviceService.getDevicesByAdmin(requesterId, targetAdminId);
+        List<DeviceResponse> responses = deviceService.getDevicesByAdmin(requesterId, targetAdminId, availableOnly);
 
         return ResponseEntity.ok(responses);
     }

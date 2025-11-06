@@ -17,9 +17,10 @@ public interface IntentClassifier {
      * 텍스트 명령어에서 의도(Intent)를 분석
      *
      * @param text 사용자 음성 명령어 텍스트
+     * @param userId 사용자 ID (컨텍스트 정보 조회용, null 가능)
      * @return 분석된 의도 및 엔티티 정보
      */
-    IntentResult classify(String text);
+    IntentResult classify(String text, Long userId);
 
     /**
      * 분석기 타입 반환 (디버깅/로깅용)

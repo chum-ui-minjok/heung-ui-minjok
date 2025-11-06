@@ -15,11 +15,15 @@ public enum Intent {
     MUSIC_NEXT("다음 곡"),
     MUSIC_STOP("재생 종료"),
 
-    // 모드 관련
-    MODE_LISTENING_START("감상 모드 시작"),
-    MODE_EXERCISE_START("체조 모드 시작"),
-    MODE_SWITCH_TO_LISTENING("감상 모드로 전환"),
-    MODE_SWITCH_TO_EXERCISE("체조 모드로 전환"),
+    // 연속 재생
+    PLAY_NEXT_IN_QUEUE("대기열 다음 곡 재생"),
+    PLAY_MORE_LIKE_THIS("비슷한 노래 계속 재생"),
+
+    // 모드 관련 (단순화)
+    MODE_HOME("홈으로 이동"),
+    MODE_LISTENING("감상 모드"),
+    MODE_EXERCISE("체조 모드"),
+    MODE_EXERCISE_END("체조 종료"),
 
     // 응급 상황
     EMERGENCY("응급 상황 감지"),

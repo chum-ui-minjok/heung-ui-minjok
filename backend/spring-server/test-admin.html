@@ -110,6 +110,12 @@
             </div>
         </div>
 
+        <!-- 등록 버튼 -->
+        <div class="section">
+            <button class="btn btn-primary" onclick="openDeviceModal()" style="margin-right:10px;">📱 기기 등록</button>
+            <button class="btn btn-success" onclick="openUserModal()">👴 어르신 등록</button>
+        </div>
+
         <div class="dashboard">
             <div class="section-title">📊 실시간 신고 리스트</div>
             <div id="res-emg-list" class="response-box"></div>
@@ -135,6 +141,50 @@
             <div class="modal-actions">
                 <button class="btn btn-success" onclick="acknowledgeReport()">처리 확인</button>
                 <button class="btn btn-primary" onclick="closeModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 기기 등록 모달 -->
+    <div id="device-modal" class="emergency-modal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-icon">📱</div>
+            <div class="modal-title" style="color:#667eea;">기기 등록</div>
+            <div style="text-align:left; margin-top:20px;">
+                <input id="device-serial" type="text" placeholder="기기 일련번호 (필수)" style="margin-bottom:15px;">
+                <input id="device-location" type="text" placeholder="설치 위치 (선택, 예: 101호)" style="margin-bottom:15px;">
+                <div id="device-register-response" class="response-box"></div>
+            </div>
+            <div class="modal-actions" style="margin-top:20px;">
+                <button class="btn btn-success" onclick="registerDevice()">등록</button>
+                <button class="btn btn-primary" onclick="closeDeviceModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 어르신 등록 모달 -->
+    <div id="user-modal" class="emergency-modal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-icon">👴</div>
+            <div class="modal-title" style="color:#2ecc71;">어르신 등록</div>
+            <div style="text-align:left; margin-top:20px;">
+                <input id="user-name" type="text" placeholder="이름 (필수)" style="margin-bottom:15px;">
+                <input id="user-birthdate" type="date" placeholder="생년월일 (선택)" style="margin-bottom:15px;">
+                <select id="user-gender" style="margin-bottom:15px;">
+                    <option value="">성별 선택 (선택)</option>
+                    <option value="MALE">남성</option>
+                    <option value="FEMALE">여성</option>
+                </select>
+                <input id="user-contact" type="text" placeholder="비상 연락처 (선택)" style="margin-bottom:15px;">
+                <select id="user-device" style="margin-bottom:15px;">
+                    <option value="">연결할 기기 선택 (필수)</option>
+                </select>
+                <textarea id="user-medical-notes" placeholder="의료 메모 (선택, 지병, 복용약 등)"></textarea>
+                <div id="user-register-response" class="response-box"></div>
+            </div>
+            <div class="modal-actions" style="margin-top:20px;">
+                <button class="btn btn-success" onclick="registerUser()">등록</button>
+                <button class="btn btn-primary" onclick="closeUserModal()">닫기</button>
             </div>
         </div>
     </div>
@@ -218,6 +268,19 @@
             if (u.healthStatus === 'EMERGENCY') { cls = 'status-emergency'; icon = '🚨'; }
             else if (!u.isActive)         { cls = 'status-warning';  icon = '🟡'; }
 
+            // 최근 활동 렌더링
+            let activitiesHtml = '';
+            if (u.recentActivities && u.recentActivities.length > 0) {
+                activitiesHtml = '<div style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">' +
+                    '<div style="font-size:12px; color:#999; margin-bottom:8px;">최근 활동</div>';
+                u.recentActivities.forEach(a => {
+                    activitiesHtml += `<div style="font-size:13px; color:#666; margin-bottom:4px;">${a.icon} ${a.description} <span style="color:#999; font-size:11px;">(${a.timeAgo})</span></div>`;
+                });
+                activitiesHtml += '</div>';
+            } else {
+                activitiesHtml = '<div style="margin-top:12px; padding-top:12px; border-top:1px solid #eee; font-size:12px; color:#999;">최근 활동 없음</div>';
+            }
+
             const div = document.createElement('div');
             div.className = `user-card ${cls}`;
             div.setAttribute('data-user-id', u.id);  // userId 추적용
@@ -225,13 +288,14 @@
             <div class="user-header"><span class="user-status-icon">${icon}</span>
                 <div>
                   <div class="user-name">${u.name}</div>
-                  <div class="user-room">${u.phoneNumber||''}</div>
+                  <div class="user-room">${u.emergencyContact||''}</div>
                 </div>
             </div>
             <div class="user-activity">
               <div class="activity-type">${u.healthStatus||'정상'} 상태</div>
-              <div class="activity-detail">${u.address||''}</div>
+              <div class="activity-detail">${u.medicalNotes||'특이사항 없음'}</div>
             </div>
+            ${activitiesHtml}
         `;
             grid.appendChild(div);
         });
@@ -459,6 +523,179 @@
     function acknowledgeReport(){
         // 모달에서 처리 버튼 누르면 모달만 닫고 리스트는 카드 버튼으로 처리
         closeModal();
+    }
+
+    // 기기 등록 모달 열기/닫기
+    function openDeviceModal(){
+        document.getElementById('device-modal').classList.add('show');
+        // 입력 필드 초기화
+        document.getElementById('device-serial').value = '';
+        document.getElementById('device-location').value = '';
+        document.getElementById('device-register-response').className = 'response-box';
+    }
+    function closeDeviceModal(){
+        document.getElementById('device-modal').classList.remove('show');
+    }
+
+    // 기기 등록
+    async function registerDevice(){
+        const serial = document.getElementById('device-serial').value.trim();
+        const location = document.getElementById('device-location').value.trim();
+        const responseBox = document.getElementById('device-register-response');
+
+        if(!serial){
+            responseBox.className = 'response-box show error';
+            responseBox.textContent = '기기 일련번호는 필수 입력 항목입니다.';
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/admins/devices`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({
+                    serialNumber: serial,
+                    location: location || null
+                })
+            });
+
+            if(res.ok){
+                const data = await res.json();
+                responseBox.className = 'response-box show success';
+                responseBox.textContent = `기기가 성공적으로 등록되었습니다! (ID: ${data.id})`;
+
+                // 2초 후 모달 닫기
+                setTimeout(() => {
+                    closeDeviceModal();
+                }, 2000);
+            } else {
+                const error = await res.json();
+                responseBox.className = 'response-box show error';
+                responseBox.textContent = `등록 실패: ${error.message || res.statusText}`;
+            }
+        } catch(e){
+            responseBox.className = 'response-box show error';
+            responseBox.textContent = `에러 발생: ${e.message}`;
+        }
+    }
+
+    // 어르신 등록 모달 열기/닫기
+    async function openUserModal(){
+        document.getElementById('user-modal').classList.add('show');
+        // 입력 필드 초기화
+        document.getElementById('user-name').value = '';
+        document.getElementById('user-birthdate').value = '';
+        document.getElementById('user-gender').value = '';
+        document.getElementById('user-contact').value = '';
+        document.getElementById('user-device').value = '';
+        document.getElementById('user-medical-notes').value = '';
+        document.getElementById('user-register-response').className = 'response-box';
+
+        // 기기 목록 로드
+        await loadDevicesForSelect();
+    }
+    function closeUserModal(){
+        document.getElementById('user-modal').classList.remove('show');
+    }
+
+    // 기기 목록을 셀렉트박스에 로드 (연결 가능한 기기만)
+    async function loadDevicesForSelect(){
+        try {
+            // availableOnly=true 파라미터로 연결 안된 기기만 요청
+            const res = await fetch(`${API_BASE}/admins/devices?availableOnly=true`, {
+                headers: {Authorization: `Bearer ${accessToken}`}
+            });
+            if(res.ok){
+                const devices = await res.json();
+
+                const select = document.getElementById('user-device');
+                select.innerHTML = '<option value="">연결할 기기 선택 (필수)</option>';
+
+                if(devices.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = '사용 가능한 기기가 없습니다. 먼저 기기를 등록해주세요.';
+                    option.disabled = true;
+                    select.appendChild(option);
+                } else {
+                    devices.forEach(d => {
+                        const option = document.createElement('option');
+                        option.value = d.id;
+                        option.textContent = `${d.serialNumber} ${d.location ? '('+d.location+')' : ''}`;
+                        select.appendChild(option);
+                    });
+                }
+            }
+        } catch(e){
+            console.error('기기 목록 로드 실패:', e);
+        }
+    }
+
+    // 어르신 등록
+    async function registerUser(){
+        const name = document.getElementById('user-name').value.trim();
+        const birthDate = document.getElementById('user-birthdate').value;
+        const gender = document.getElementById('user-gender').value;
+        const contact = document.getElementById('user-contact').value.trim();
+        const deviceId = document.getElementById('user-device').value;
+        const medicalNotes = document.getElementById('user-medical-notes').value.trim();
+        const responseBox = document.getElementById('user-register-response');
+
+        if(!name){
+            responseBox.className = 'response-box show error';
+            responseBox.textContent = '이름은 필수 입력 항목입니다.';
+            return;
+        }
+
+        if(!deviceId){
+            responseBox.className = 'response-box show error';
+            responseBox.textContent = '연결할 기기를 선택해주세요.';
+            return;
+        }
+
+        try {
+            const requestBody = {
+                name: name,
+                deviceId: parseInt(deviceId)
+            };
+
+            // 선택 필드들 추가
+            if(birthDate) requestBody.birthDate = birthDate;
+            if(gender) requestBody.gender = gender;
+            if(contact) requestBody.emergencyContact = contact;
+            if(medicalNotes) requestBody.medicalNotes = medicalNotes;
+
+            const res = await fetch(`${API_BASE}/admins/users`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if(res.ok){
+                const data = await res.json();
+                responseBox.className = 'response-box show success';
+                responseBox.textContent = `어르신이 성공적으로 등록되었습니다! (ID: ${data.id})`;
+
+                // 2초 후 모달 닫기 및 대시보드 새로고침
+                setTimeout(() => {
+                    closeUserModal();
+                    loadDashboardData();
+                }, 2000);
+            } else {
+                const error = await res.json();
+                responseBox.className = 'response-box show error';
+                responseBox.textContent = `등록 실패: ${error.message || res.statusText}`;
+            }
+        } catch(e){
+            responseBox.className = 'response-box show error';
+            responseBox.textContent = `에러 발생: ${e.message}`;
+        }
     }
 </script>
 </body>

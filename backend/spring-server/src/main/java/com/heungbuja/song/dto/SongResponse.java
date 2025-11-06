@@ -13,14 +13,14 @@ public class SongResponse {
     private Long id;
     private String title;
     private String artist;
-    private String s3Url;
+    private Long mediaId;
 
     public static SongResponse from(Song song) {
         return SongResponse.builder()
                 .id(song.getId())
                 .title(song.getTitle())
                 .artist(song.getArtist())
-                .s3Url(song.getS3Url())
+                .mediaId(song.getMedia().getId())
                 .build();
     }
 }

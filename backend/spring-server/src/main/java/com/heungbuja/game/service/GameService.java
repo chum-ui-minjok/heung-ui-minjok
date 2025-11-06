@@ -60,9 +60,11 @@ public class GameService {
     private final SongBeatRepository songBeatRepository;
     private final SongLyricsRepository songLyricsRepository;
     private final SongChoreographyRepository songChoreographyRepository;
-    private final RedisTemplate<String, GameState> redisTemplate;
+    private final RedisTemplate<String, GameState> gameStateRedisTemplate;
     private final WebClient webClient;
     private final GameResultRepository gameResultRepository;
+    private final com.heungbuja.s3.service.MediaUrlService mediaUrlService;
+    // (추가) private final GameResultRepository gameResultRepository; // MySQL 결과 저장을 위한 Repository
 
     /**
      * 1. 게임 시작 로직
@@ -122,13 +124,16 @@ public class GameService {
         // 1-4. 게임 세션 ID 생성 및 Redis에 초기 상태 저장
         String sessionId = UUID.randomUUID().toString();
         GameState initialGameState = GameState.initial(sessionId, user.getId(), song.getId());
-        redisTemplate.opsForValue().set(sessionId, initialGameState, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
+        gameStateRedisTemplate.opsForValue().set(sessionId, initialGameState, Duration.ofMinutes(30)); // 30분 후 세션 만료
         log.info("새로운 게임 세션 시작: userId={}, sessionId={}", user.getId(), sessionId);
 
-        // 1-5. 프론트엔드에 필요한 모든 정보를 담아 응답
+        // 1-5. presigned URL 생성
+        String presignedUrl = mediaUrlService.issueUrlById(song.getMedia().getId());
+
+        // 1-6. 프론트엔드에 필요한 모든 정보를 담아 응답
         return GameStartResponse.builder()
                 .sessionId(sessionId)
-                .audioUrl(song.getS3Url())
+                .audioUrl(presignedUrl)
                 .beatInfo(beatInfo)
                 .lyricsInfo(lyricsInfo)
                 .choreographyInfo(choreographyInfo)
@@ -313,7 +318,7 @@ public class GameService {
         log.info("세션 {}의 게임 결과 저장 완료. User: {}, Song: {}", sessionId, user.getId(), song.getId());
 
         // 5. Redis에 저장된 임시 데이터 삭제
-        redisTemplate.delete(sessionId);
+        gameStateRedisTemplate.delete(sessionId);
         log.info("세션 {}의 Redis 데이터 삭제 완료.", sessionId);
     }
 
@@ -321,7 +326,7 @@ public class GameService {
     // --- Helper 메소드들 ---
     private GameState getGameState(String sessionId) {
         // 1. Redis 조회 결과를 'gameState'라는 변수에 먼저 저장합니다.
-        GameState gameState = redisTemplate.opsForValue().get(sessionId);
+        GameState gameState = gameStateRedisTemplate.opsForValue().get(sessionId);
 
         // 2. 변수가 null인지 확인합니다.
         if (gameState == null) {
@@ -334,7 +339,7 @@ public class GameService {
     }
 
     private void saveGameState(String sessionId, GameState gameState) {
-        redisTemplate.opsForValue().set(sessionId, gameState, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
+        gameStateRedisTemplate.opsForValue().set(sessionId, gameState, Duration.ofMinutes(30));
     }
 
     private double calculateAverageScore(List<Double> scores) {
