@@ -47,6 +47,7 @@ public class GameService {
 //    private static final int GAME_TOTAL_SEGMENTS = 12;
     /** Redis 세션 만료 시간 (분) */
     private static final int SESSION_TIMEOUT_MINUTES = 30;
+    private static final int JUDGMENT_PERFECT = 3;
 
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
@@ -101,17 +102,17 @@ public class GameService {
                 ));
 
         // 3. part1, part2의 16비트(4마디) 묶음별 시작 시간 리스트 계산
-        List<Double> part1SegmentTimes = calculateSegmentStartTimes(songBeat, barStartTimes, "part1");
-        List<Double> part2SegmentTimes = calculateSegmentStartTimes(songBeat, barStartTimes, "part2");
+        List<Double> verse1SegmentTimes = calculateSegmentStartTimes(songBeat, barStartTimes, "verse1");
+        List<Double> verse2SegmentTimes = calculateSegmentStartTimes(songBeat, barStartTimes, "verse2");
 
         // 4. 프론트에 전달할 SectionInfo 객체 생성
         SectionInfo sectionInfo = SectionInfo.builder()
                 .introStartTime(sectionStartTimes.getOrDefault("intro", 0.0))
-                .part1StartTime(sectionStartTimes.getOrDefault("part1", 0.0))
+                .verse1StartTime(sectionStartTimes.getOrDefault("verse1", 0.0))
                 .breakStartTime(sectionStartTimes.getOrDefault("break", 0.0))
-                .part2StartTime(sectionStartTimes.getOrDefault("part2", 0.0))
-                .part1SegmentStartTimes(part1SegmentTimes)
-                .part2SegmentStartTimes(part2SegmentTimes)
+                .verse2StartTime(sectionStartTimes.getOrDefault("verse2", 0.0))
+                .verse1SegmentStartTimes(verse1SegmentTimes)
+                .verse2SegmentStartTimes(verse2SegmentTimes)
                 .build();
 
         // --- ▲ 데이터 가공 로직 종료 ▲ ---
@@ -124,15 +125,27 @@ public class GameService {
 
         // 1-5. Presigned URL 생성 (1절 영상 URL 등도 여기서 생성해야 함)
         String audioUrl = mediaUrlService.issueUrlById(song.getMedia().getId());
+        // --- ▼ 모든 시범 영상 URL들을 Map으로 관리 ▼ ---
+        Map<String, String> videoUrls = new HashMap<>();
+
+        // TODO: 인트로 시범 영상에 대한 Media ID를 찾아서 URL을 생성하는 로직 필요
+        videoUrls.put("intro", "https://example.com/video_intro.mp4"); // 임시 URL
+
         // TODO: 1절 시범 영상에 대한 Media ID를 찾아서 URL을 생성하는 로직 필요
-        String characterVideoUrl_v1 = "https://example.com/video_v1.mp4"; // 임시 URL
+        videoUrls.put("verse1", "https://example.com/video_v1.mp4"); // 임시 URL
+
+        // TODO: 2절 레벨 1, 2, 3 영상 Media ID를 찾아 URL을 생성하는 로직 필요
+        //       (미리 모두 생성해서 보내주면, 프론트가 1절 종료 후 바로 영상을 교체할 수 있음)
+        videoUrls.put("verse2_level1", "https://example.com/video_v2_level1.mp4"); // 임시 URL
+        videoUrls.put("verse2_level2", "https://example.com/video_v2_level2.mp4"); // 임시 URL
+        videoUrls.put("verse2_level3", "https://example.com/video_v2_level3.mp4"); // 임시 URL
+        // --- ▲ ---------------------------------------------------- ▲ ---
 
         // 1-6. 최종 응답 생성
         return GameStartResponse.builder()
                 .sessionId(sessionId)
-                .websocketUrl("wss://k13a103.p.ssafy.io/api/ws") // TODO: 설정 파일에서 읽어오도록 변경
                 .audioUrl(audioUrl)
-                .characterVideoUrl_v1(characterVideoUrl_v1)
+                .videoUrls(videoUrls)
                 .bpm(songBeat.getTempoMap().get(0).getBpm()) // 첫 번째 BPM 값 사용
                 .duration(songBeat.getAudio().getDurationSec())
                 .sectionInfo(sectionInfo) // 가공된 데이터 전달
@@ -148,8 +161,17 @@ public class GameService {
         GameState gameState = getGameState(sessionId);
         double currentPlayTime = request.getCurrentPlayTime();
 
+        // --- ▼ (수정) AI 서버 호출 없이, 무조건 PERFECT(3)로 판정 ▼ ---
+        int judgment = JUDGMENT_PERFECT;
+
+        // 1. 판정 결과를 프론트엔드에 WebSocket으로 발송
+        sendFeedback(sessionId, judgment, currentPlayTime);
+
+        // 2. 판정 결과를 Redis의 GameState에 기록
+        recordJudgment(sessionId, judgment, currentPlayTime);
+
         // TODO: findCorrectActionCodeForCurrentTime 메소드 구현 필요
-        int correctActionCode = findCorrectActionCodeForCurrentTime(gameState.getSongId(), currentPlayTime);
+//        int correctActionCode = findCorrectActionCodeForCurrentTime(gameState.getSongId(), currentPlayTime);
 
         // webClient.post()
         //         .uri("http://motion-server:8000/analyze_single_action")
@@ -175,17 +197,38 @@ public class GameService {
     }
 
     /**
+     * 판정 결과를 Redis에 기록하는 헬퍼 메소드
+     */
+    private void recordJudgment(String sessionId, int judgment, double currentPlayTime) {
+        GameState currentState = getGameState(sessionId);
+
+        // TODO: currentPlayTime과 SongBeat 정보를 이용해 현재가 1절인지 2절인지 판단하는 로직 필요
+        //       (우선은 임시로, 1절에만 점수를 기록하도록 단순화)
+        boolean isVerse1 = true; // 임시
+
+        if (isVerse1) {
+            currentState.getVerse1Judgments().add(judgment);
+        } else {
+            currentState.getVerse2Judgments().add(judgment);
+        }
+
+        saveGameState(sessionId, currentState);
+        log.trace("판정 기록 완료: sessionId={}, judgment={}", sessionId, judgment);
+    }
+
+
+    /**
      * 3. 1절 종료 시, 레벨 결정 결과를 WebSocket으로 발송하는 메소드
      */
     public void decideAndSendNextLevel(String sessionId) {
         GameState gameState = getGameState(sessionId);
 
-        // TODO: GameState에 기록된 1절 판정 결과를 바탕으로 점수 계산
-        double averageScore = 75.0; // 임시 점수
+        // GameState에 기록된 1절 판정 결과를 바탕으로 평균 점수 계산
+        double averageScore = calculateScoreFromJudgments(gameState.getVerse1Judgments());
         int nextLevel = determineLevel(averageScore);
 
         // TODO: 결정된 레벨에 맞는 2절 시범 영상 URL 가져오기
-        String characterVideoUrl = "https://s3..."; // 임시 URL
+        String characterVideoUrl = "https://example.com/video_v2_level" + nextLevel + ".mp4"; // 임시 URL
 
         gameState.setNextLevel(nextLevel);
         saveGameState(sessionId, gameState);
@@ -195,7 +238,7 @@ public class GameService {
         GameWebSocketMessage<LevelDecisionData> message = new GameWebSocketMessage<>("LEVEL_DECISION", levelData);
         messagingTemplate.convertAndSend(destination, message);
 
-        log.info("세션 {}의 다음 레벨 결정: {}", sessionId, nextLevel);
+        log.info("세션 {}의 다음 레벨 결정: {}, 평균 점수: {}", sessionId, nextLevel, averageScore);
     }
 
 
@@ -210,9 +253,9 @@ public class GameService {
             return;
         }
 
-        // TODO: 1, 2절 판정 결과를 바탕으로 최종 점수 계산
-        double verse1Avg = 0.0;
-        double verse2Avg = 0.0;
+        // 1, 2절 판정 결과를 바탕으로 최종 점수 계산
+        double verse1Avg = calculateScoreFromJudgments(finalGameState.getVerse1Judgments());
+        double verse2Avg = calculateScoreFromJudgments(finalGameState.getVerse2Judgments());
 
         User user = userRepository.findById(finalGameState.getUserId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "게임 결과 저장 중 사용자를 찾을 수 없습니다."));
@@ -228,10 +271,22 @@ public class GameService {
                 .build();
 
         gameResultRepository.save(gameResult);
-        log.info("세션 {}의 게임 결과 저장 완료. User: {}, Song: {}", sessionId, user.getId(), song.getId());
+        log.info("세션 {}의 게임 결과 저장 완료. 1절 점수: {}, 2절 점수: {}", sessionId, verse1Avg, verse2Avg);
 
         gameStateRedisTemplate.delete(sessionId);
         log.info("세션 {}의 Redis 데이터 삭제 완료.", sessionId);
+    }
+
+    // (신규) 판정 리스트를 100점 만점 점수로 변환하는 메소드
+    private double calculateScoreFromJudgments(List<Integer> judgments) {
+        if (judgments == null || judgments.isEmpty()) {
+            return 0.0;
+        }
+        // 각 판정 점수(1,2,3)를 100점 만점으로 환산 (3점=100, 2점=66.6, 1점=33.3)
+        double totalScore = judgments.stream()
+                .mapToDouble(judgment -> (double) judgment / 3.0 * 100.0)
+                .sum();
+        return totalScore / judgments.size();
     }
 
     // --- Helper 메소드들 ---
