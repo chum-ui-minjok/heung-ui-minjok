@@ -1,6 +1,7 @@
 package com.heungbuja.game.controller;
 
 import com.heungbuja.game.dto.WebSocketFrameRequest;
+import com.heungbuja.game.dto.WebSocketPoseRequest;
 import com.heungbuja.game.service.GameService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,25 @@ public class GameMessageController {
     @MessageMapping("/game/ping") // <-- 파라미터 없는 간단한 주소
     public void handlePing() {
         log.info("!!!!!!!! PING 메시지 수신 성공 !!!!!!!!");
+    }
+
+    /**
+     * 프론트엔드로부터 Pose 좌표 데이터를 받는 WebSocket 엔드포인트 (새로운 방식)
+     * 클라이언트는 "/app/game/pose" 주소로 메시지를 보냅니다.
+     * 프론트에서 MediaPipe로 추출한 좌표를 직접 전송
+     */
+    @MessageMapping("/game/pose")
+    public void processPoseFrame(WebSocketPoseRequest request) {
+        if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+            log.warn("sessionId가 없는 WebSocket Pose 요청이 들어왔습니다.");
+            return;
+        }
+
+        log.trace("WebSocket Pose 수신: sessionId={}, landmarks={}",
+                request.getSessionId(),
+                request.getPoseData() != null ? request.getPoseData().size() : 0);
+
+        gameService.processPoseFrame(request);
     }
 
     /**
