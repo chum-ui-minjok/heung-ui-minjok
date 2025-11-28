@@ -29,13 +29,13 @@ import java.util.Map;
 @Slf4j
 @Service
 @Primary // 이 구현체를 우선 사용
-@Profile({"prod", "!local"}) // local 제외한 모든 프로파일
+@Profile({"prod", "test", "!local"}) // local 제외한 모든 프로파일 + test
 public class OpenAiWhisperSttServiceImpl implements SttService {
 
-    @Value("${openai.gms.api-key}")
-    private String gmsApiKey;
+    @Value("${openai.api-key:${openai.gms.api-key:}}")
+    private String apiKey;
 
-    @Value("${openai.gms.stt.url:https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/transcriptions}")
+    @Value("${openai.stt.url:${openai.gms.stt.url:https://api.openai.com/v1/audio/transcriptions}}")
     private String sttApiUrl;
 
     private final HttpClient httpClient;
@@ -62,15 +62,6 @@ public class OpenAiWhisperSttServiceImpl implements SttService {
         try {
             long startTime = System.currentTimeMillis();
 
-            // 디버깅 로그 추가
-            log.info("===== STT API 요청 상세 =====");
-            log.info("URL: {}", sttApiUrl);
-            log.info("API Key 길이: {}", gmsApiKey.length());
-            log.info("API Key (첫 20자): {}...", gmsApiKey.substring(0, Math.min(20, gmsApiKey.length())));
-            log.info("File: {}, Size: {} bytes", audioFile.getOriginalFilename(), audioFile.getSize());
-            log.info("Model: whisper-1, Language: ko");
-            log.info("============================");
-
             // Multipart boundary 생성
             String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
             byte[] multipartBody = buildMultipartBody(audioFile, boundary);
@@ -79,7 +70,7 @@ public class OpenAiWhisperSttServiceImpl implements SttService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(sttApiUrl))
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .header("Authorization", "Bearer " + gmsApiKey)
+                    .header("Authorization", "Bearer " + apiKey)
                     .header("User-Agent", "HeungbujaApp/1.0")
                     .header("Accept", "*/*")
                     .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody))
