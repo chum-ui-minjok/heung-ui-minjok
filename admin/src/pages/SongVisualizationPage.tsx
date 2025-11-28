@@ -1,21 +1,25 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useVisualizationStore } from '../stores';
-import { getSongs, getSongVisualization } from '../api/visualization';
-import { useVisualizationPlayer } from '../hooks';
-import { Button } from '../components';
-import SongSelector from '../components/visualization/SongSelector';
-import VisualizationHeader from '../components/visualization/VisualizationHeader';
-import PlaybackControls from '../components/visualization/PlaybackControls';
-import SectionDisplay from '../components/visualization/SectionDisplay';
-import ProgressBar from '../components/visualization/ProgressBar';
-import ActionIndicator from '../components/visualization/ActionIndicator';
-import Timeline from '../components/visualization/Timeline';
-import '../styles/visualization.css';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useVisualizationStore } from "../stores";
+import { getSongs, getSongVisualization } from "../api/visualization";
+import { useVisualizationPlayer } from "../hooks";
+import { SimpleSongUploadModal } from "../components";
+import SongSelector from "../components/visualization/SongSelector";
+import VisualizationHeader from "../components/visualization/VisualizationHeader";
+import PlaybackControls from "../components/visualization/PlaybackControls";
+import SectionDisplay from "../components/visualization/SectionDisplay";
+import ProgressBar from "../components/visualization/ProgressBar";
+import ActionIndicator from "../components/visualization/ActionIndicator";
+import Timeline from "../components/visualization/Timeline";
+import AdminLayout from "../layouts/AdminLayout";
+import {
+  createQuickRegisterNavItem,
+  developerBaseNavItems,
+} from "../config/navigation";
+import "../styles/visualization.css";
 
 const SongVisualizationPage = () => {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
+  const [isSongUploadModalOpen, setIsSongUploadModalOpen] = useState(false);
 
   const {
     songs,
@@ -36,17 +40,36 @@ const SongVisualizationPage = () => {
   // 재생 로직 훅
   const { play, pause, stop, isPlaying } = useVisualizationPlayer();
 
-  // 초기 데이터 로드
-  useEffect(() => {
-    loadSongs();
+  // 네비게이션 항목
+  const navigationItems = useMemo(
+    () => [
+      ...developerBaseNavItems,
+      createQuickRegisterNavItem(() => setIsSongUploadModalOpen(true)),
+    ],
+    [setIsSongUploadModalOpen]
+  );
 
-    return () => {
-      reset(); // 컴포넌트 언마운트 시 상태 초기화
-    };
-  }, []);
+  // 시각화 데이터 로드
+  const loadVisualization = useCallback(
+    async (songId: number) => {
+      try {
+        const data = await getSongVisualization(songId);
+        setVisualizationData(data);
+        console.log("시각화 데이터 로드 완료:", data);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "시각화 데이터를 불러오는데 실패했습니다.";
+        setError(errorMessage);
+        console.error("시각화 데이터 로드 실패:", error);
+      }
+    },
+    [setError, setVisualizationData]
+  );
 
   // 곡 목록 로드
-  const loadSongs = async () => {
+  const loadSongs = useCallback(async () => {
     try {
       setIsLoading(true);
       const songList = await getSongs();
@@ -59,140 +82,132 @@ const SongVisualizationPage = () => {
         await loadVisualization(firstSongId);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '곡 목록을 불러오는데 실패했습니다.';
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "곡 목록을 불러오는데 실패했습니다.";
       setError(errorMessage);
-      console.error('곡 목록 로드 실패:', error);
+      console.error("곡 목록 로드 실패:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadVisualization, setError, setIsLoading, setSelectedSongId, setSongs]);
 
-  // 시각화 데이터 로드
-  const loadVisualization = async (songId: number) => {
-    try {
-      const data = await getSongVisualization(songId);
-      setVisualizationData(data);
-      console.log('시각화 데이터 로드 완료:', data);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '시각화 데이터를 불러오는데 실패했습니다.';
-      setError(errorMessage);
-      console.error('시각화 데이터 로드 실패:', error);
-    }
-  };
+  // 초기 데이터 로드
+  useEffect(() => {
+    loadSongs();
 
-  // 대시보드로 돌아가기
-  const handleBackToDashboard = () => {
-    navigate('/dashboard');
-  };
+    return () => {
+      reset(); // 컴포넌트 언마운트 시 상태 초기화
+    };
+  }, [loadSongs, reset]);
 
   if (isLoading) {
     return (
-      <div className="viz-page">
-        <div className="viz-loading">
-          <p>곡 목록을 불러오는 중...</p>
+      <AdminLayout navItems={navigationItems}>
+        <div className="viz-page">
+          <div className="viz-loading">
+            <p>곡 목록을 불러오는 중...</p>
+          </div>
         </div>
-      </div>
+        <SimpleSongUploadModal
+          isOpen={isSongUploadModalOpen}
+          onClose={() => setIsSongUploadModalOpen(false)}
+        />
+      </AdminLayout>
     );
   }
 
   return (
-    <div className="viz-page">
-      {/* 헤더 - 뒤로가기 & 곡 선택 */}
-      <div className="viz-page-header">
-        <Button variant="primary" onClick={handleBackToDashboard}>
-          ← 대시보드로 돌아가기
-        </Button>
+    <AdminLayout navItems={navigationItems}>
+      <div className="viz-page">
+        {/* 곡 선택 */}
+        <div className="viz-page-header">
+          <SongSelector
+            songs={songs}
+            selectedSongId={selectedSongId}
+            onSelect={async (songId) => {
+              setSelectedSongId(songId);
+              reset();
+              await loadVisualization(songId);
+            }}
+          />
+        </div>
 
-        <SongSelector
-          songs={songs}
-          selectedSongId={selectedSongId}
-          onSelect={async (songId) => {
-            setSelectedSongId(songId);
-            reset();
-            await loadVisualization(songId);
-          }}
-        />
-      </div>
-
-      {/* 시각화 컨텐츠 영역 */}
-      <div className="viz-content">
-        {!visualizationData ? (
-          <div className="viz-empty-state">
-            <p>곡을 선택하면 시각화 데이터를 볼 수 있습니다.</p>
-          </div>
-        ) : (
-          <div className="viz-container">
-            {/* 헤더 */}
-            <VisualizationHeader
-              title={songs.find(s => s.id === selectedSongId)?.title || ''}
-              artist={songs.find(s => s.id === selectedSongId)?.artist || ''}
-              bpm={visualizationData.bpm}
-              duration={visualizationData.duration}
-            />
-
-            {/* 재생 컨트롤 */}
-            <div className="viz-controls-sticky">
-            <PlaybackControls
-              isPlaying={isPlaying}
-              onPlay={play}
-              onPause={pause}
-              onStop={stop}
-              selectedLevel={selectedLevel}
-              onLevelChange={setSelectedLevel}
-            />
+        {/* 시각화 컨텐츠 영역 */}
+        <div className="viz-content">
+          {!visualizationData ? (
+            <div className="viz-empty-state">
+              <p>곡을 선택하면 시각화 데이터를 볼 수 있습니다.</p>
             </div>
-
-            {/* 타임라인 섹션 */}
-            <div className="viz-section">
-              {/* 현재 구간 */}
-              <SectionDisplay
-                sectionName={currentSection}
-                currentTime={currentTime}
-                totalTime={visualizationData.duration}
-              />
-
-              {/* 진행 바 */}
-              <ProgressBar
-                currentTime={currentTime}
-                duration={visualizationData.duration}
-                sections={visualizationData.songBeat.sections || []}
-                beats={visualizationData.songBeat.beats || []}
-              />
-
-              {/* 가사 표시 */}
-              {/* <KaraokeLyrics
-                currentLyric={currentLyric}
-                nextLyric={
-                  currentLyric
-                    ? visualizationData.lyricsInfo?.lines.find(
-                        (line) => line.start > currentLyric.end
-                      ) || null
-                    : null
+          ) : (
+            <div className="viz-container">
+              {/* 헤더 */}
+              <VisualizationHeader
+                title={songs.find((s) => s.id === selectedSongId)?.title || ""}
+                artist={
+                  songs.find((s) => s.id === selectedSongId)?.artist || ""
                 }
-                currentTime={currentTime}
-              /> */}
-
-              {/* 동작 표시 */}
-              <ActionIndicator
-                action={currentAction}
-                isActive={currentAction !== null}
+                bpm={visualizationData.bpm}
+                duration={visualizationData.duration}
               />
 
-              {/* 타임라인 */}
-              <Timeline
-                lyrics={visualizationData.lyricsInfo?.lines || []}
-                actions={[
-                  ...(visualizationData.verse1Timeline || []),
-                  ...(visualizationData.verse2Timelines?.[selectedLevel] || []),
-                ]}
-                currentTime={currentTime}
-                currentAction={currentAction}
-              />
+              {/* 재생 컨트롤 */}
+              <div className="viz-controls-sticky">
+                <PlaybackControls
+                  isPlaying={isPlaying}
+                  onPlay={play}
+                  onPause={pause}
+                  onStop={stop}
+                  selectedLevel={selectedLevel}
+                  onLevelChange={setSelectedLevel}
+                />
+              </div>
+
+              {/* 타임라인 섹션 */}
+              <div className="viz-section">
+                {/* 현재 구간 */}
+                <SectionDisplay
+                  sectionName={currentSection}
+                  currentTime={currentTime}
+                  totalTime={visualizationData.duration}
+                />
+
+                {/* 진행 바 */}
+                <ProgressBar
+                  currentTime={currentTime}
+                  duration={visualizationData.duration}
+                  sections={visualizationData.songBeat.sections || []}
+                  beats={visualizationData.songBeat.beats || []}
+                />
+
+                {/* 동작 표시 */}
+                <ActionIndicator
+                  action={currentAction}
+                  isActive={currentAction !== null}
+                />
+
+                {/* 타임라인 */}
+                <Timeline
+                  lyrics={visualizationData.lyricsInfo?.lines || []}
+                  actions={[
+                    ...(visualizationData.verse1Timeline || []),
+                    ...(visualizationData.verse2Timelines?.[selectedLevel] ||
+                      []),
+                  ]}
+                  currentTime={currentTime}
+                  currentAction={currentAction}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+      <SimpleSongUploadModal
+        isOpen={isSongUploadModalOpen}
+        onClose={() => setIsSongUploadModalOpen(false)}
+      />
+    </AdminLayout>
   );
 };
 
