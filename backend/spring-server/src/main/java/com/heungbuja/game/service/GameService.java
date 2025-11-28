@@ -3,12 +3,14 @@ package com.heungbuja.game.service;
 import com.heungbuja.common.exception.CustomException;
 import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.game.domain.GameDetail;
+import com.heungbuja.game.domain.PoseTrainingData;
 import com.heungbuja.game.domain.SpringServerPerformance;
 import com.heungbuja.game.dto.*;
 import com.heungbuja.game.entity.GameResult;
 import com.heungbuja.game.entity.ScoreByAction;
 import com.heungbuja.game.enums.GameSessionStatus;
 import com.heungbuja.game.repository.mongo.GameDetailRepository;
+import com.heungbuja.game.repository.mongo.PoseTrainingDataRepository;
 import com.heungbuja.game.repository.mongo.SpringServerPerformanceRepository;
 import com.heungbuja.game.repository.jpa.GameResultRepository;
 import com.heungbuja.game.state.GameState;
@@ -159,12 +161,15 @@ public class GameService {
     @Value("${app.base-url:http://localhost:8080/api}") // 기본값은 로컬
     private String baseUrl;
 
-    // --- 게임 데이터 로컬 저장 설정 ---
+    // --- 게임 데이터 저장 설정 ---
     @Value("${game.data.save-enabled:false}")
     private boolean gameDataSaveEnabled;
 
     @Value("${game.data.save-path:../motion-server/app/brandnewTrain/game_data}")
     private String gameDataSavePath;
+
+    @Value("${game.data.save-to-db:false}")
+    private boolean gameDataSaveToDb;  // true: MongoDB에 저장 (실제 서버용)
 
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
@@ -186,6 +191,7 @@ public class GameService {
     private final ActionRepository actionRepository;
     private final MediaUrlService mediaUrlService;
     private final SpringServerPerformanceRepository springServerPerformanceRepository;
+    private final PoseTrainingDataRepository poseTrainingDataRepository;
     private final com.heungbuja.game.repository.mongo.MotionInferenceLogRepository motionInferenceLogRepository;
 
     @Qualifier("aiWebClient") // 여러 WebClient Bean 중 aiWebClient를 특정
@@ -741,9 +747,12 @@ public class GameService {
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<List<List<Double>>> poseFrames = new ArrayList<>(gameSession.getPoseBuffer().values());
 
-                    // 학습 데이터 저장
+                    // 학습 데이터 저장 (로컬 파일 또는 MongoDB)
                     if (gameDataSaveEnabled) {
                         savePoseDataToLocalDisk(sessionId, currentAction.getActionName(), poseFrames, gameSession.getJudgmentCount());
+                    }
+                    if (gameDataSaveToDb) {
+                        savePoseDataToMongoDB(sessionId, gameSession, currentAction, poseFrames);
                     }
 
                     callAiServerForPoseJudgment(sessionId, gameSession, currentAction, poseFrames);
@@ -840,6 +849,34 @@ public class GameService {
 
         } catch (IOException e) {
             log.error("❌ Pose 데이터 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
+    }
+
+    /**
+     * Pose 좌표 데이터를 MongoDB에 저장 (실제 서버용 - 팀원들 학습 데이터 수집)
+     */
+    private void savePoseDataToMongoDB(String sessionId, GameSession gameSession, ActionTimelineEvent action, List<List<List<Double>>> poseFrames) {
+        try {
+            PoseTrainingData trainingData = PoseTrainingData.builder()
+                    .sessionId(sessionId)
+                    .userId(gameSession.getUserId())
+                    .songId(gameSession.getSongId())
+                    .actionCode(action.getActionCode())
+                    .actionName(action.getActionName())
+                    .poseFrames(poseFrames)
+                    .frameCount(poseFrames.size())
+                    .verified(false)
+                    .createdAt(LocalDateTime.now())
+                    .verse(gameSession.getNextLevel() == null ? "verse1" : "verse2")
+                    .sequenceIndex(gameSession.getNextActionIndex())
+                    .build();
+
+            poseTrainingDataRepository.save(trainingData);
+            log.info("💾 Pose 데이터 MongoDB 저장 완료: sessionId={}, action={}, frames={}",
+                    sessionId, action.getActionName(), poseFrames.size());
+
+        } catch (Exception e) {
+            log.error("❌ Pose 데이터 MongoDB 저장 실패 (동작: {}): {}", action.getActionName(), e.getMessage());
         }
     }
 
