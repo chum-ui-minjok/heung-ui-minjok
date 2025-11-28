@@ -1,6 +1,8 @@
 package com.heungbuja.music.controller;
 
 import com.heungbuja.common.dto.ControlResponse;
+import com.heungbuja.common.exception.CustomException;
+import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.music.dto.MusicListResponse;
 import com.heungbuja.music.dto.MusicPlayRequest;
 import com.heungbuja.music.dto.MusicPlayResponse;
@@ -37,6 +39,9 @@ public class MusicController {
      */
     @PostMapping("/play")
     public ResponseEntity<MusicPlayResponse> playMusic(@RequestBody MusicPlayRequest request) {
+        if (request.getSongId() == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "songId는 필수입니다");
+        }
         MusicPlayResponse response = musicService.playSong(request.getSongId());
         return ResponseEntity.ok(response);
     }
