@@ -18,12 +18,14 @@ public class MusicListResponse {
     private Long songId;
     private String title;
     private String artist;
+    private Long playCount;
 
-    public static MusicListResponse from(Song song) {
+    public static MusicListResponse from(Song song, Long playCount) {
         return MusicListResponse.builder()
                 .songId(song.getId())
                 .title(song.getTitle())
                 .artist(song.getArtist())
+                .playCount(playCount != null ? playCount : 0L)
                 .build();
     }
 }
