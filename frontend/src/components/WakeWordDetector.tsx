@@ -3,13 +3,14 @@ import { usePorcupine } from "@picovoice/porcupine-react";
 
 interface WakeWordDetectorProps {
   onDetection: () => void;
+  isVoiceActive: boolean;
 }
 
 const VITE_ACCESS_KEY = import.meta.env.VITE_PICOVOICE_ACCESS_KEY;
 const BASE_URL = import.meta.env.BASE_URL;
 
-const WakeWordDetector: React.FC<WakeWordDetectorProps> = ({ onDetection }) => {
-  const { keywordDetection, isLoaded, isListening, error, init, start, release } = usePorcupine();
+const WakeWordDetector: React.FC<WakeWordDetectorProps> = ({ onDetection, isVoiceActive }) => {
+  const { keywordDetection, isLoaded, isListening, error, init, start, stop, release } = usePorcupine();
 
   useEffect(() => {
     console.log("[WakeWord] 1. Picovoice 초기화를 시도합니다.");
@@ -34,18 +35,34 @@ const WakeWordDetector: React.FC<WakeWordDetectorProps> = ({ onDetection }) => {
   }, []);
 
   useEffect(() => {
-    if (isLoaded && !isListening) {
-      console.log("[WakeWord] 2. 초기화 완료! 감지를 시작합니다.");
-      start();
+    // 초기화가 완료되었고,
+    if (isLoaded) {
+      // 음성 시스템이 바쁘지 않고(false) + 현재 듣고 있지 않다면 -> 감지를 시작합니다.
+      if (!isVoiceActive && !isListening) {
+        console.log("[WakeWord] 음성 시스템 유휴 상태. 감지를 시작합니다.");
+        start();
+      }
+      // 음성 시스템이 바쁘고(true) + 현재 듣고 있다면 -> 감지를 중지합니다. (무한 루프 방지)
+      else if (isVoiceActive && isListening) {
+        console.log("[WakeWord] 음성 시스템 활성 상태. 감지를 중지합니다.");
+        stop();
+      }
     }
-  }, [isLoaded, isListening, start]);
+  }, [isLoaded, isListening, isVoiceActive, start, stop]);
 
   useEffect(() => {
     if (keywordDetection !== null) {
       console.log(`✅ [WakeWord] 3. "${keywordDetection.label}" 감지 성공!!!`);
-      onDetection();
+
+      // 👇 핵심 수정! 감지하자마자 스스로 멈춥니다.
+      if (isListening) {
+        console.log("[WakeWord] 감지 성공! 즉시 감지를 중지합니다.");
+        stop();
+      }
+
+      onDetection(); // 그 다음에 부모에게 알립니다.
     }
-  }, [keywordDetection, onDetection]);
+  }, [keywordDetection, onDetection, isListening, stop]);
 
   useEffect(() => {
     if (error) {

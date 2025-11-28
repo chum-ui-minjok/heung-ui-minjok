@@ -20,45 +20,19 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
 
   // 1. 음성 관련 훅들을 HomePage에서 직접 호출하여 상태를 중앙 관리합니다.
-  const { isRecording, countdown, audioBlob, startRecording } = useVoiceRecorder();
-  const { isUploading, isPlaying, responseText, response, sendCommand } = useVoiceCommand({});
-  const { pause } = useAudioStore();
-  const requestGameStop = useGameStore((s) => s.requestStop);
-
-  // 녹음 완료 시 자동 전송 로직
-  useEffect(() => {
-    if (audioBlob) {
-      console.log("녹음 완료! 서버로 전송 중...");
-      sendCommand(audioBlob);
-    }
-  }, [audioBlob, sendCommand]);
-
-  // 2. 녹음을 시작하는 공통 함수를 만듭니다.
-  const handleStartVoiceCommand = () => {
-    // 이미 다른 작업 중이면 실행하지 않음
-    if (isRecording || isUploading || isPlaying) {
-      console.log("⚠️ 다른 음성 작업이 진행 중이라 시작할 수 없습니다.");
-      return;
-    }
-    console.log("⏸️ 노래 & 게임 일시정지");
-    requestGameStop();
-    pause();
-    console.log("🎙️ 녹음 시작");
-    startRecording();
-  };
+  // const { isRecording, countdown, audioBlob, startRecording } = useVoiceRecorder();
+  // const { isUploading, isPlaying, responseText, response, sendCommand } = useVoiceCommand({});
+  // const { pause } = useAudioStore();
+  // const requestGameStop = useGameStore((s) => s.requestStop);
 
   const handleMusicClick = () => navigate("/listening");
   const handleExerciseClick = () => navigate("/tutorial");
 
-  const isVoiceBusy = isRecording || isUploading || isPlaying;
-  const isEmergency = response?.intent === "EMERGENCY";
+  // const isVoiceBusy = isRecording || isUploading || isPlaying;
+  // const isEmergency = response?.intent === "EMERGENCY";
 
   return (
     <div className="home-page">
-      {/* WakeWordDetector는 UI가 없으므로 아무 곳에나 두어도 됩니다. */}
-      {/* onDetection prop으로 녹음 시작 함수를 넘겨줍니다. */}
-      <WakeWordDetector onDetection={handleStartVoiceCommand} />
-
       <div className="home-container">
         <div className="button-container">
           <button className="home-button music-button" onClick={handleMusicClick}>
