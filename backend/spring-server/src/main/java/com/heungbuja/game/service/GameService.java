@@ -636,10 +636,10 @@ public class GameService {
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<String> frames = new ArrayList<>(gameSession.getFrameBuffer().values());
 
-                    // --- 게임 데이터 로컬 저장 (모델 학습용) ---
-                    if (gameDataSaveEnabled) {
-                        saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
-                    }
+                    // --- 이미지 저장 비활성화 (이제 Pose 좌표만 사용) ---
+                    // if (gameDataSaveEnabled) {
+                    //     saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
+                    // }
 
                     callAiServerForJudgment(sessionId, gameSession, currentAction, frames);
                     log.info(" > AI 서버 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
@@ -660,6 +660,168 @@ public class GameService {
             }
         }
         saveGameSession(sessionId, gameSession);
+    }
+
+    /**
+     * WebSocket으로부터 받은 Pose 좌표 데이터를 처리하는 메소드 (새로운 방식)
+     * 프론트에서 MediaPipe로 추출한 좌표를 직접 받아서 처리
+     */
+    public void processPoseFrame(WebSocketPoseRequest request) {
+        String sessionId = request.getSessionId();
+        double currentPlayTime = request.getCurrentPlayTime();
+
+        GameState gameState = getGameState(sessionId);
+        GameSession gameSession = getGameSession(sessionId);
+
+        if (gameSession == null) {
+            log.error("GameSession이 존재하지 않습니다: sessionId={}", sessionId);
+            return;
+        }
+
+        // poseBuffer가 null이면 초기화
+        if (gameSession.getPoseBuffer() == null) {
+            gameSession.setPoseBuffer(new java.util.TreeMap<>());
+        }
+
+        gameSession.setLastFrameReceivedTime(Instant.now().toEpochMilli());
+
+        List<ActionTimelineEvent> timeline = getCurrentTimeline(gameState, gameSession);
+        int nextActionIndex = gameSession.getNextActionIndex();
+
+        if (nextActionIndex >= timeline.size()) {
+            saveGameSession(sessionId, gameSession);
+            return;
+        }
+
+        ActionTimelineEvent currentAction = timeline.get(nextActionIndex);
+        double actionTime = currentAction.getTime();
+
+        // BPM 기반 타이밍 계산
+        double bpm = gameState.getBpm() != null ? gameState.getBpm() : 100.0;
+        double secondsPerBeat = 60.0 / bpm;
+        double actionDurationSeconds = ACTION_DURATION_BEATS * secondsPerBeat;
+
+        double collectStartTime = actionTime - NETWORK_LATENCY_OFFSET_SECONDS;
+        double collectEndTime = collectStartTime + actionDurationSeconds;
+
+        boolean shouldCollect = currentPlayTime >= collectStartTime && currentPlayTime <= collectEndTime;
+        boolean shouldTrigger = currentPlayTime > collectEndTime;
+
+        // 수집 구간 밖의 버퍼 클리어
+        if (currentPlayTime < collectStartTime - 0.1 && !gameSession.getPoseBuffer().isEmpty()) {
+            gameSession.getPoseBuffer().clear();
+        }
+
+        if (shouldCollect) {
+            gameSession.getPoseBuffer().put(currentPlayTime, request.getPoseData());
+        }
+
+        // 판정 트리거
+        if (shouldTrigger) {
+            if (!gameSession.getPoseBuffer().isEmpty()) {
+                if (gameSession.getJudgmentCount() % 1 == 0) {
+                    List<List<List<Double>>> poseFrames = new ArrayList<>(gameSession.getPoseBuffer().values());
+
+                    // 학습 데이터 저장
+                    if (gameDataSaveEnabled) {
+                        savePoseDataToLocalDisk(sessionId, currentAction.getActionName(), poseFrames, gameSession.getJudgmentCount());
+                    }
+
+                    callAiServerForPoseJudgment(sessionId, gameSession, currentAction, poseFrames);
+                    log.info(" > AI 서버 Pose 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
+                }
+                gameSession.setJudgmentCount(gameSession.getJudgmentCount() + 1);
+            }
+
+            gameSession.setNextActionIndex(nextActionIndex + 1);
+            gameSession.getPoseBuffer().clear();
+
+            if (gameSession.getNextLevel() != null && gameSession.getNextActionIndex() >= timeline.size()) {
+                log.info("세션 {}의 2절 모든 동작 판정 완료.", sessionId);
+            }
+        }
+        saveGameSession(sessionId, gameSession);
+    }
+
+    /**
+     * Pose 좌표 데이터를 AI 서버에 전송하여 판정 받는 메소드 (새로운 방식)
+     */
+    private void callAiServerForPoseJudgment(String sessionId, GameSession gameSession, ActionTimelineEvent action, List<List<List<Double>>> poseFrames) {
+        long startTime = System.currentTimeMillis();
+        log.info("세션 {}의 동작 '{}'에 대한 AI Pose 분석 요청 전송. (프레임 {}개)", sessionId, action.getActionName(), poseFrames.size());
+
+        AiPoseAnalyzeRequest requestBody = AiPoseAnalyzeRequest.builder()
+                .actionCode(action.getActionCode())
+                .actionName(action.getActionName())
+                .frameCount(poseFrames.size())
+                .poseFrames(poseFrames)
+                .build();
+
+        aiWebClient.post()
+                .uri("/api/ai/brandnew/analyze-pose")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(AiJudgmentResponse.class)
+                .subscribe(
+                        aiResponse -> {
+                            long responseTime = System.currentTimeMillis() - startTime;
+                            aiResponseStats.record(responseTime);
+
+                            int actionCode = aiResponse.getActionCode();
+                            int judgment = aiResponse.getJudgment();
+                            log.info("⏱️ AI Pose 분석 결과 수신 (세션 {}): actionCode={}, judgment={} (응답시간: {}ms)",
+                                    sessionId, actionCode, judgment, responseTime);
+
+                            handleJudgmentResult(sessionId, actionCode, judgment, action.getTime());
+                        },
+                        error -> {
+                            long responseTime = System.currentTimeMillis() - startTime;
+                            log.error("AI Pose 서버 호출 중 오류 발생 (세션 ID: {}). 기본 점수(0점)으로 처리합니다.", sessionId, error);
+                            handleJudgmentResult(sessionId, action.getActionCode(), 0, action.getTime());
+                        }
+                );
+    }
+
+    /**
+     * Pose 좌표 데이터를 로컬 디스크에 저장 (모델 학습용 - NPZ 형식)
+     */
+    private void savePoseDataToLocalDisk(String sessionId, String actionName, List<List<List<Double>>> poseFrames, int sequenceId) {
+        try {
+            Path saveDir = Paths.get(gameDataSavePath);
+            if (!Files.exists(saveDir)) {
+                Files.createDirectories(saveDir);
+            }
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
+
+            // JSON 형식으로 저장 (Python에서 쉽게 읽을 수 있도록)
+            String filename = String.format("%s_%s_%d_poses.json", timestamp, actionName, sequenceId);
+            Path filePath = saveDir.resolve(filename);
+
+            // JSON 변환
+            StringBuilder json = new StringBuilder();
+            json.append("{\"action\":\"").append(actionName).append("\",");
+            json.append("\"timestamp\":\"").append(timestamp).append("\",");
+            json.append("\"frames\":[");
+            for (int i = 0; i < poseFrames.size(); i++) {
+                if (i > 0) json.append(",");
+                json.append("[");
+                List<List<Double>> frame = poseFrames.get(i);
+                for (int j = 0; j < frame.size(); j++) {
+                    if (j > 0) json.append(",");
+                    json.append("[").append(frame.get(j).get(0)).append(",").append(frame.get(j).get(1)).append("]");
+                }
+                json.append("]");
+            }
+            json.append("]}");
+
+            Files.writeString(filePath, json.toString());
+
+            log.info("💾 Pose 데이터 저장 완료: {} (동작: {}, 프레임: {}개)", filename, actionName, poseFrames.size());
+
+        } catch (IOException e) {
+            log.error("❌ Pose 데이터 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
     }
 
     /**

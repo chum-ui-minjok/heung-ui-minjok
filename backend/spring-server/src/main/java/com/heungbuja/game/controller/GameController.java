@@ -22,7 +22,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/game")
+@RequestMapping("/api/game")
 public class GameController {
 
     private final GameService gameService;
