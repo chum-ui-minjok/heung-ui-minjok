@@ -13,7 +13,8 @@ const VoiceButton: React.FC = () => {
     isRecording,
     countdown,
     audioBlob,
-    startRecording
+    startRecording,
+    clearAudioBlob,
   } = useVoiceRecorder();
 
   const autoRetryFlagRef = useRef(false); // 수동 녹음당 1회 자동 재녹음 플래그
@@ -103,11 +104,14 @@ const VoiceButton: React.FC = () => {
 
   // 녹음 완료 시 자동 전송
   useEffect(() => {
-    if (audioBlob) {
-      console.log('녹음 완료! 서버로 전송 중...');
-      sendCommand(audioBlob);
-    }
-  }, [audioBlob, sendCommand]);
+    if (!audioBlob) return;
+
+    console.log('녹음 완료! 서버로 전송 중...');
+    sendCommand(audioBlob);
+
+    // 같은 Blob으로 다시 전송되는 것 방지
+    clearAudioBlob();
+  }, [audioBlob, sendCommand, clearAudioBlob]);
 
   return (
     <>

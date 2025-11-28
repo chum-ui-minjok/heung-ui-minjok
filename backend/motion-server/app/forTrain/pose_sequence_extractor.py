@@ -27,7 +27,7 @@ from PIL import Image
 
 
 SEQ_PATTERN = re.compile(
-    r"(?P<base>.+)_seq(?P<seq>\d+)_frame(?P<frame>\d+)\.(?P<ext>jpg|jpeg|png)$",
+    r"(?P<base>.+)_seq(?P<seq>\d+)_frame(?P<frame>\d+)_backup\.(?P<ext>jpg|jpeg|png)$",
     re.IGNORECASE,
 )
 
