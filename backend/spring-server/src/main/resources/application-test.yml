@@ -47,7 +47,7 @@ security:
 game:
   data:
     save-enabled: true
-    save-path: ../motion-server/app/brandnewTrain/game_data
+    save-path: ../motion-server/app/brandnewTrain/game_data_mediapipe
 
 # AI 서버 (로컬)
 ai:
