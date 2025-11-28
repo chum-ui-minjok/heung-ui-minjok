@@ -636,10 +636,10 @@ public class GameService {
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<String> frames = new ArrayList<>(gameSession.getFrameBuffer().values());
 
-                    // --- 게임 데이터 로컬 저장 (모델 학습용) ---
-                    if (gameDataSaveEnabled) {
-                        saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
-                    }
+                    // --- 이미지 저장 비활성화 (이제 Pose 좌표만 사용) ---
+                    // if (gameDataSaveEnabled) {
+                    //     saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
+                    // }
 
                     callAiServerForJudgment(sessionId, gameSession, currentAction, frames);
                     log.info(" > AI 서버 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
