@@ -20,11 +20,14 @@ import com.heungbuja.song.domain.SongBeat;
 import com.heungbuja.song.domain.SongChoreography;
 import com.heungbuja.song.domain.SongLyrics;
 import com.heungbuja.song.entity.Song;
+import com.heungbuja.song.enums.PlaybackMode;
 import com.heungbuja.song.repository.mongo.ChoreographyPatternRepository;
 import com.heungbuja.song.repository.mongo.SongBeatRepository;
 import com.heungbuja.song.repository.mongo.SongChoreographyRepository;
 import com.heungbuja.song.repository.mongo.SongLyricsRepository;
+import com.heungbuja.song.repository.jpa.ListeningHistoryRepository;
 import com.heungbuja.song.repository.jpa.SongRepository;
+import com.heungbuja.song.service.ListeningHistoryService;
 import com.heungbuja.user.entity.User;
 import com.heungbuja.user.repository.UserRepository;
 import com.heungbuja.game.repository.jpa.ActionRepository;
@@ -166,6 +169,8 @@ public class GameService {
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
     private final SongRepository songRepository;
+    private final ListeningHistoryRepository listeningHistoryRepository;
+    private final ListeningHistoryService listeningHistoryService;
     private final SongBeatRepository songBeatRepository;
     private final SongLyricsRepository songLyricsRepository;
     private final SongChoreographyRepository songChoreographyRepository;
@@ -199,14 +204,24 @@ public class GameService {
     }
 
     /**
-     * 게임 가능한 노래 목록 조회 (최대 limit개)
+     * 게임 가능한 노래 목록 조회 (인기순 정렬, 최대 limit개)
      */
     @Transactional(readOnly = true)
     public List<GameSongListResponse> getAvailableGameSongs(int limit) {
         List<Song> songs = songRepository.findAll();
+
+        // 게임 모드(GAME) 기준 재생 횟수 집계
+        Map<Long, Long> playCountMap = listeningHistoryRepository.countBySongAndMode(PlaybackMode.GAME)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
         return songs.stream()
+                .map(song -> GameSongListResponse.from(song, playCountMap.getOrDefault(song.getId(), 0L)))
+                .sorted(Comparator.comparing(GameSongListResponse::getPlayCount).reversed())
                 .limit(limit)
-                .map(GameSongListResponse::from)
                 .collect(Collectors.toList());
     }
 
@@ -218,6 +233,10 @@ public class GameService {
         User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         if (!user.getIsActive()) throw new CustomException(ErrorCode.USER_NOT_ACTIVE);
         Song song = songRepository.findById(request.getSongId()).orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
+
+        // 청취 이력 기록 (인기곡 집계용 - 게임 모드)
+        listeningHistoryService.recordListening(user, song, PlaybackMode.GAME);
+
         Long songId = song.getId();
         SongBeat songBeat = songBeatRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "비트 정보를 찾을 수 없습니다."));
         SongLyrics lyricsInfo = songLyricsRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "가사 정보를 찾을 수 없습니다."));
