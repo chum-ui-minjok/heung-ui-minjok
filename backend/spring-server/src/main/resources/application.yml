@@ -94,3 +94,8 @@ game:
   data:
     save-enabled: false  # true로 변경하면 로컬에 이미지 저장
     save-path: ${GAME_DATA_SAVE_PATH:../motion-server/app/brandnewTrain/game_data}
+
+# SuperAdmin 초기 계정 설정
+superadmin:
+  username: ${SUPERADMIN_USERNAME:superadmin}
+  password: ${SUPERADMIN_PASSWORD}  # 필수 - 환경변수로 설정
