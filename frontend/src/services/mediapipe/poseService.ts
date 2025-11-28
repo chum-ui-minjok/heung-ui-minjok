@@ -1,12 +1,15 @@
 import { Pose, type Results, type NormalizedLandmark } from '@mediapipe/pose';
 import { Camera } from '@mediapipe/camera_utils';
 import { TOTAL_LANDMARKS } from '@/types';
+import { GAME_CONFIG } from '@/utils/constants';
 
 type PoseCallback = (landmarks: number[][] | null) => void;
 
 let poseInstance: Pose | null = null;
 let cameraInstance: Camera | null = null;
 let onResultsCallback: PoseCallback | null = null;
+let isDetectionActive = false; // Pose 감지 활성화 여부
+let lastSendTime = 0; // FPS 제한용
 
 /**
  * MediaPipe Pose 초기화
@@ -38,7 +41,13 @@ export const initializePose = async (): Promise<Pose> => {
  * MediaPipe 결과 처리
  */
 const handleResults = (results: Results): void => {
-  if (!onResultsCallback) return;
+  // 감지가 비활성화되어 있으면 콜백 호출 안 함
+  if (!isDetectionActive || !onResultsCallback) return;
+
+  // FPS 제한 (GAME_CONFIG.FRAME_MS 간격으로만 전송)
+  const now = performance.now();
+  if (now - lastSendTime < GAME_CONFIG.FRAME_MS) return;
+  lastSendTime = now;
 
   if (!results.poseLandmarks) {
     onResultsCallback(null);
@@ -60,16 +69,22 @@ const handleResults = (results: Results): void => {
 };
 
 /**
- * 카메라 시작 및 Pose 연결
+ * 카메라만 시작 (Pose 감지는 비활성화 상태)
  */
-export const startPoseDetection = async (
+export const startCamera = async (
   videoElement: HTMLVideoElement,
   callback: PoseCallback
 ): Promise<void> => {
   onResultsCallback = callback;
+  isDetectionActive = false; // 처음엔 감지 비활성화
 
   if (!poseInstance) {
     await initializePose();
+  }
+
+  if (cameraInstance) {
+    console.log('📹 카메라 이미 실행 중');
+    return;
   }
 
   cameraInstance = new Camera(videoElement, {
@@ -83,26 +98,43 @@ export const startPoseDetection = async (
   });
 
   await cameraInstance.start();
-  console.log('✅ Pose 감지 시작');
+  console.log('📹 카메라 시작 (Pose 감지 대기 중)');
 };
 
 /**
- * Pose 감지 중지
+ * Pose 감지 활성화 (카메라는 이미 실행 중이어야 함)
+ */
+export const startPoseDetection = (): void => {
+  isDetectionActive = true;
+  console.log('✅ Pose 감지 활성화');
+};
+
+/**
+ * Pose 감지 비활성화 (카메라는 계속 실행)
  */
 export const stopPoseDetection = (): void => {
+  isDetectionActive = false;
+  console.log('⏹ Pose 감지 비활성화');
+};
+
+/**
+ * 카메라 중지
+ */
+export const stopCamera = (): void => {
+  isDetectionActive = false;
   if (cameraInstance) {
     cameraInstance.stop();
     cameraInstance = null;
   }
   onResultsCallback = null;
-  console.log('⏹ Pose 감지 중지');
+  console.log('📹 카메라 중지');
 };
 
 /**
  * 리소스 정리
  */
 export const cleanupPose = (): void => {
-  stopPoseDetection();
+  stopCamera();
   if (poseInstance) {
     poseInstance.close();
     poseInstance = null;

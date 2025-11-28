@@ -59,14 +59,14 @@ export async function mockGameStart(): Promise<GameStartResponse> {
         '/당돌한여자.mp3',
       videoUrls: {
         intro:
-          'https://heungbuja-bucket.s3.ap-northeast-2.amazonaws.com/video/break.mp4',
+          '.break.mp4',
         verse1:
-          'https://heungbuja-bucket.s3.ap-northeast-2.amazonaws.com/video/part1.mp4',
+          '/P1.mp4',
         verse2_level1:
-          'https://heungbuja-bucket.s3.ap-northeast-2.amazonaws.com/video/part2_level1.mp4',
+          '/P1.mp4',
         verse2_level2:
-          'https://heungbuja-bucket.s3.ap-northeast-2.amazonaws.com/video/part2_level2.mp4',
-        verse2_level3: 'https://example.com/video_v2_level3.mp4',
+          '/P1.mp4',
+        verse2_level3: '/P1.mp4',
       },
       bpm: 129.71510314941406,
       duration: 220.35736961451246,

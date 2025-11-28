@@ -142,6 +142,14 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
         currentPlayTime,      // 초 단위
       });
 
+      // 전송 데이터 로그
+      console.log('📤 sendFrame:', {
+        sessionId,
+        currentPlayTime,
+        frameDataLength: frameData.length,
+        frameDataPreview: frameData.substring(0, 50) + '...',
+      });
+
       try {
         client.publish({
           destination: '/app/game/frame',
@@ -166,6 +174,14 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
         sessionId,
         currentPlayTime,
         poseData,  // [[x, y], [x, y], ...] 33개 랜드마크
+      });
+
+      // 전송 데이터 로그
+      console.log('📤 sendPoseData:', {
+        sessionId,
+        currentPlayTime,
+        landmarkCount: poseData.length,
+        sampleLandmarks: poseData.slice(0, 3),  // 처음 3개만 미리보기
       });
 
       try {
