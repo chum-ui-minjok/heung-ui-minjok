@@ -198,6 +198,101 @@ class BrandnewMotionInferenceService:
 
         LOGGER.info("Brandnew ACTION_CODE mapping: %s", self.ACTION_CODE_TO_CLASS_INDEX)
 
+    def predict_from_poses(
+        self,
+        pose_frames: Sequence[Sequence[Sequence[float]]],
+        target_action_name: str | None = None,
+        target_action_code: int | None = None,
+    ) -> InferenceResult:
+        """
+        Pose 좌표 시퀀스를 직접 받아 동작 예측 수행 (새로운 방식 - MediaPipe 스킵)
+
+        Args:
+            pose_frames: 프레임별 좌표 리스트. 각 프레임은 33개 랜드마크의 [x, y] 좌표
+                        형태: [[[x0, y0], [x1, y1], ...], ...]  (frames, 33, 2)
+            target_action_name: 목표 동작 이름 (선택)
+            target_action_code: 목표 동작 코드 (선택)
+        """
+        from time import perf_counter
+
+        if not pose_frames:
+            raise ValueError("Pose 데이터가 비어 있습니다.")
+
+        start_time = perf_counter()
+
+        # 프레임 샘플링
+        sampled_frames = self._sample_pose_frames(pose_frames, self.frames_per_sample)
+
+        # numpy 배열로 변환: (T, 33, 2)
+        raw_sequence = np.array(sampled_frames, dtype=np.float32)
+
+        if raw_sequence.shape[1] != 33 or raw_sequence.shape[2] != 2:
+            raise ValueError(
+                f"잘못된 좌표 형식입니다. 기대: (T, 33, 2), 실제: {raw_sequence.shape}"
+            )
+
+        # 정규화 (기존과 동일한 방식)
+        normalized_sequence = self._normalize_sequence(raw_sequence)
+        preprocess_time_ms = (perf_counter() - start_time) * 1000
+
+        LOGGER.info("🔍 Pose 입력 - shape: %s", normalized_sequence.shape)
+
+        # 모델 추론
+        input_tensor = torch.from_numpy(normalized_sequence).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            inference_start = perf_counter()
+            logits = self.model(input_tensor)
+            inference_time_ms = (perf_counter() - inference_start) * 1000
+            probabilities = torch.softmax(logits, dim=-1).cpu().numpy()[0]
+
+        best_idx = int(np.argmax(probabilities))
+        predicted_label = self.id_to_label.get(best_idx, "UNKNOWN")
+        confidence = float(probabilities[best_idx])
+
+        target_index = self._resolve_target_index(target_action_name, target_action_code)
+        target_probability: float | None = None
+        if target_index is not None and 0 <= target_index < len(probabilities):
+            target_probability = float(probabilities[target_index])
+            judgment = self._score_by_probability(target_probability)
+        else:
+            judgment = self._fallback_score(predicted_label, confidence, target_action_name)
+
+        LOGGER.info(
+            "🎯 Pose AI 판정 - 목표=%s(code=%s), 예측=%s(%.1f%%), 점수=%d점",
+            target_action_name, target_action_code, predicted_label, confidence * 100, judgment
+        )
+
+        if target_action_code is not None:
+            resolved_action_code = target_action_code
+        else:
+            resolved_action_code = self.CLASS_INDEX_TO_ACTION_CODE.get(best_idx, best_idx + 1)
+
+        return InferenceResult(
+            predicted_label=predicted_label,
+            confidence=confidence,
+            judgment=judgment,
+            action_code=resolved_action_code,
+            decode_time_ms=0.0,  # 이미지 디코딩 없음
+            pose_time_ms=preprocess_time_ms,  # 전처리 시간
+            inference_time_ms=inference_time_ms,
+            target_probability=target_probability,
+        )
+
+    def _sample_pose_frames(
+        self, frames: Sequence[Sequence[Sequence[float]]], target_count: int
+    ) -> list:
+        """Pose 프레임 샘플링"""
+        if len(frames) == target_count:
+            return list(frames)
+
+        if len(frames) < target_count:
+            padding = [frames[-1]] * (target_count - len(frames))
+            return list(frames) + padding
+
+        indices = np.linspace(0, len(frames) - 1, target_count).astype(int)
+        return [frames[i] for i in indices]
+
     def predict(
         self,
         frames: Sequence[str],
