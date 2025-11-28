@@ -15,12 +15,14 @@ public class GameSongListResponse {
     private Long songId;
     private String title;
     private String artist;
+    private Long playCount;
 
-    public static GameSongListResponse from(Song song) {
+    public static GameSongListResponse from(Song song, Long playCount) {
         return GameSongListResponse.builder()
                 .songId(song.getId())
                 .title(song.getTitle())
                 .artist(song.getArtist())
+                .playCount(playCount != null ? playCount : 0L)
                 .build();
     }
 }
