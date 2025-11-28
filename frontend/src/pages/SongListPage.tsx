@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import './SongListPage.css';
-import VoiceButton from '@/components/VoiceButton';
 import SongListItem from '@/components/SongListItem';
 import type { Song } from '@/types/song';
 
@@ -44,7 +43,6 @@ function SongListPage() {
           ))}
         </div>
       </div>
-      <VoiceButton />
     </>
   );
 }

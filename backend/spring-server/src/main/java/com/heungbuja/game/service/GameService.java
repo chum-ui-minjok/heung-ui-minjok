@@ -48,8 +48,13 @@ import reactor.core.publisher.Mono;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -68,7 +73,12 @@ public class GameService {
     /** Redis 세션 만료 시간 (분) */
     private static final int SESSION_TIMEOUT_MINUTES = 30;
     private static final int JUDGMENT_PERFECT = 3;
-    private static final double JUDGMENT_BUFFER_SECONDS = 0.2; // 앞뒤로 0.2초의 여유 시간
+    // BPM 기반 타이밍 계산을 위한 비트 수
+    private static final double ACTION_DURATION_BEATS = 1.0; // 모든 동작: 1비트로 단축 (8프레임 수집에 최적화)
+    private static final double NETWORK_LATENCY_OFFSET_SECONDS = 0.2; // 네트워크 지연 보정 감소 (프론트 캡처 + 웹소켓 전송)
+    private static final int CLAP_ACTION_CODE = 1; // 손 박수 actionCode
+    private static final int ELBOW_ACTION_CODE = 2; // 팔 치기 actionCode
+    private static final int EXIT_ACTION_CODE = 6; // 비상구 actionCode
 
     // --- Redis Key 접두사 상수 ---
     private static final String GAME_STATE_KEY_PREFIX = "game_state:";
@@ -146,6 +156,13 @@ public class GameService {
     @Value("${app.base-url:http://localhost:8080/api}") // 기본값은 로컬
     private String baseUrl;
 
+    // --- 게임 데이터 로컬 저장 설정 ---
+    @Value("${game.data.save-enabled:false}")
+    private boolean gameDataSaveEnabled;
+
+    @Value("${game.data.save-path:../motion-server/app/brandnewTrain/game_data}")
+    private String gameDataSavePath;
+
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
     private final SongRepository songRepository;
@@ -179,6 +196,18 @@ public class GameService {
                 actionCodeToNameMap.put(action.getActionCode(), action.getName())
         );
         // --- ▲ ---------------------------------------------------- ▲ ---
+    }
+
+    /**
+     * 게임 가능한 노래 목록 조회 (최대 limit개)
+     */
+    @Transactional(readOnly = true)
+    public List<GameSongListResponse> getAvailableGameSongs(int limit) {
+        List<Song> songs = songRepository.findAll();
+        return songs.stream()
+                .limit(limit)
+                .map(GameSongListResponse::from)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -555,6 +584,11 @@ public class GameService {
         GameState gameState = getGameState(sessionId);
         GameSession gameSession = getGameSession(sessionId);
 
+        if (gameSession == null) {
+            log.error("GameSession이 존재하지 않습니다: sessionId={}", sessionId);
+            return;
+        }
+
         gameSession.setLastFrameReceivedTime(Instant.now().toEpochMilli());
 
         List<ActionTimelineEvent> timeline = getCurrentTimeline(gameState, gameSession);
@@ -567,20 +601,46 @@ public class GameService {
 
         ActionTimelineEvent currentAction = timeline.get(nextActionIndex);
         double actionTime = currentAction.getTime();
+        int actionCode = currentAction.getActionCode();
 
-        // 프레임 수집
-        if (currentPlayTime >= actionTime - JUDGMENT_BUFFER_SECONDS &&
-                currentPlayTime <= actionTime + JUDGMENT_BUFFER_SECONDS) {
+        // BPM 기반 타이밍 계산
+        double bpm = gameState.getBpm() != null ? gameState.getBpm() : 100.0; // 기본값 100 BPM
+        double secondsPerBeat = 60.0 / bpm;
+        double actionDurationSeconds = ACTION_DURATION_BEATS * secondsPerBeat;
+
+        // 네트워크 지연 보정: 프론트 캡처/전송 지연을 고려해 수집을 조금 일찍 시작
+        double collectStartTime = actionTime - NETWORK_LATENCY_OFFSET_SECONDS;
+        double collectEndTime = collectStartTime + actionDurationSeconds;
+
+        // 프레임 수집: 지연 보정 적용
+        boolean shouldCollect = currentPlayTime >= collectStartTime &&
+                               currentPlayTime <= collectEndTime;
+        boolean shouldTrigger = currentPlayTime > collectEndTime;
+
+        // 새로운 동작 시작 시 이전 버퍼 강제 클리어 (이전 동작 프레임 혼입 방지)
+        if (currentPlayTime < collectStartTime - 0.1 && !gameSession.getFrameBuffer().isEmpty()) {
+            log.warn("세션 {}: 수집 구간 밖의 프레임 버퍼 클리어 (actionTime={}, currentPlayTime={})",
+                    sessionId, actionTime, currentPlayTime);
+            gameSession.getFrameBuffer().clear();
+        }
+
+        if (shouldCollect) {
             gameSession.getFrameBuffer().put(currentPlayTime, request.getFrameData());
         }
 
-        // 판정 트리거
-        if (currentPlayTime > actionTime + JUDGMENT_BUFFER_SECONDS) {
+        // 판정 트리거: 동작 종료 후
+        if (shouldTrigger) {
             if (!gameSession.getFrameBuffer().isEmpty()) {
 
                 // --- ▼ (핵심 수정) 2번에 1번만 AI 서버를 호출하도록 변경 ---
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<String> frames = new ArrayList<>(gameSession.getFrameBuffer().values());
+
+                    // --- 이미지 저장 비활성화 (이제 Pose 좌표만 사용) ---
+                    // if (gameDataSaveEnabled) {
+                    //     saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
+                    // }
+
                     callAiServerForJudgment(sessionId, gameSession, currentAction, frames);
                     log.info(" > AI 서버 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
                 } else {
@@ -600,6 +660,168 @@ public class GameService {
             }
         }
         saveGameSession(sessionId, gameSession);
+    }
+
+    /**
+     * WebSocket으로부터 받은 Pose 좌표 데이터를 처리하는 메소드 (새로운 방식)
+     * 프론트에서 MediaPipe로 추출한 좌표를 직접 받아서 처리
+     */
+    public void processPoseFrame(WebSocketPoseRequest request) {
+        String sessionId = request.getSessionId();
+        double currentPlayTime = request.getCurrentPlayTime();
+
+        GameState gameState = getGameState(sessionId);
+        GameSession gameSession = getGameSession(sessionId);
+
+        if (gameSession == null) {
+            log.error("GameSession이 존재하지 않습니다: sessionId={}", sessionId);
+            return;
+        }
+
+        // poseBuffer가 null이면 초기화
+        if (gameSession.getPoseBuffer() == null) {
+            gameSession.setPoseBuffer(new java.util.TreeMap<>());
+        }
+
+        gameSession.setLastFrameReceivedTime(Instant.now().toEpochMilli());
+
+        List<ActionTimelineEvent> timeline = getCurrentTimeline(gameState, gameSession);
+        int nextActionIndex = gameSession.getNextActionIndex();
+
+        if (nextActionIndex >= timeline.size()) {
+            saveGameSession(sessionId, gameSession);
+            return;
+        }
+
+        ActionTimelineEvent currentAction = timeline.get(nextActionIndex);
+        double actionTime = currentAction.getTime();
+
+        // BPM 기반 타이밍 계산
+        double bpm = gameState.getBpm() != null ? gameState.getBpm() : 100.0;
+        double secondsPerBeat = 60.0 / bpm;
+        double actionDurationSeconds = ACTION_DURATION_BEATS * secondsPerBeat;
+
+        double collectStartTime = actionTime - NETWORK_LATENCY_OFFSET_SECONDS;
+        double collectEndTime = collectStartTime + actionDurationSeconds;
+
+        boolean shouldCollect = currentPlayTime >= collectStartTime && currentPlayTime <= collectEndTime;
+        boolean shouldTrigger = currentPlayTime > collectEndTime;
+
+        // 수집 구간 밖의 버퍼 클리어
+        if (currentPlayTime < collectStartTime - 0.1 && !gameSession.getPoseBuffer().isEmpty()) {
+            gameSession.getPoseBuffer().clear();
+        }
+
+        if (shouldCollect) {
+            gameSession.getPoseBuffer().put(currentPlayTime, request.getPoseData());
+        }
+
+        // 판정 트리거
+        if (shouldTrigger) {
+            if (!gameSession.getPoseBuffer().isEmpty()) {
+                if (gameSession.getJudgmentCount() % 1 == 0) {
+                    List<List<List<Double>>> poseFrames = new ArrayList<>(gameSession.getPoseBuffer().values());
+
+                    // 학습 데이터 저장
+                    if (gameDataSaveEnabled) {
+                        savePoseDataToLocalDisk(sessionId, currentAction.getActionName(), poseFrames, gameSession.getJudgmentCount());
+                    }
+
+                    callAiServerForPoseJudgment(sessionId, gameSession, currentAction, poseFrames);
+                    log.info(" > AI 서버 Pose 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
+                }
+                gameSession.setJudgmentCount(gameSession.getJudgmentCount() + 1);
+            }
+
+            gameSession.setNextActionIndex(nextActionIndex + 1);
+            gameSession.getPoseBuffer().clear();
+
+            if (gameSession.getNextLevel() != null && gameSession.getNextActionIndex() >= timeline.size()) {
+                log.info("세션 {}의 2절 모든 동작 판정 완료.", sessionId);
+            }
+        }
+        saveGameSession(sessionId, gameSession);
+    }
+
+    /**
+     * Pose 좌표 데이터를 AI 서버에 전송하여 판정 받는 메소드 (새로운 방식)
+     */
+    private void callAiServerForPoseJudgment(String sessionId, GameSession gameSession, ActionTimelineEvent action, List<List<List<Double>>> poseFrames) {
+        long startTime = System.currentTimeMillis();
+        log.info("세션 {}의 동작 '{}'에 대한 AI Pose 분석 요청 전송. (프레임 {}개)", sessionId, action.getActionName(), poseFrames.size());
+
+        AiPoseAnalyzeRequest requestBody = AiPoseAnalyzeRequest.builder()
+                .actionCode(action.getActionCode())
+                .actionName(action.getActionName())
+                .frameCount(poseFrames.size())
+                .poseFrames(poseFrames)
+                .build();
+
+        aiWebClient.post()
+                .uri("/api/ai/brandnew/analyze-pose")
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(AiJudgmentResponse.class)
+                .subscribe(
+                        aiResponse -> {
+                            long responseTime = System.currentTimeMillis() - startTime;
+                            aiResponseStats.record(responseTime);
+
+                            int actionCode = aiResponse.getActionCode();
+                            int judgment = aiResponse.getJudgment();
+                            log.info("⏱️ AI Pose 분석 결과 수신 (세션 {}): actionCode={}, judgment={} (응답시간: {}ms)",
+                                    sessionId, actionCode, judgment, responseTime);
+
+                            handleJudgmentResult(sessionId, actionCode, judgment, action.getTime());
+                        },
+                        error -> {
+                            long responseTime = System.currentTimeMillis() - startTime;
+                            log.error("AI Pose 서버 호출 중 오류 발생 (세션 ID: {}). 기본 점수(0점)으로 처리합니다.", sessionId, error);
+                            handleJudgmentResult(sessionId, action.getActionCode(), 0, action.getTime());
+                        }
+                );
+    }
+
+    /**
+     * Pose 좌표 데이터를 로컬 디스크에 저장 (모델 학습용 - NPZ 형식)
+     */
+    private void savePoseDataToLocalDisk(String sessionId, String actionName, List<List<List<Double>>> poseFrames, int sequenceId) {
+        try {
+            Path saveDir = Paths.get(gameDataSavePath);
+            if (!Files.exists(saveDir)) {
+                Files.createDirectories(saveDir);
+            }
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
+
+            // JSON 형식으로 저장 (Python에서 쉽게 읽을 수 있도록)
+            String filename = String.format("%s_%s_%d_poses.json", timestamp, actionName, sequenceId);
+            Path filePath = saveDir.resolve(filename);
+
+            // JSON 변환
+            StringBuilder json = new StringBuilder();
+            json.append("{\"action\":\"").append(actionName).append("\",");
+            json.append("\"timestamp\":\"").append(timestamp).append("\",");
+            json.append("\"frames\":[");
+            for (int i = 0; i < poseFrames.size(); i++) {
+                if (i > 0) json.append(",");
+                json.append("[");
+                List<List<Double>> frame = poseFrames.get(i);
+                for (int j = 0; j < frame.size(); j++) {
+                    if (j > 0) json.append(",");
+                    json.append("[").append(frame.get(j).get(0)).append(",").append(frame.get(j).get(1)).append("]");
+                }
+                json.append("]");
+            }
+            json.append("]}");
+
+            Files.writeString(filePath, json.toString());
+
+            log.info("💾 Pose 데이터 저장 완료: {} (동작: {}, 프레임: {}개)", filename, actionName, poseFrames.size());
+
+        } catch (IOException e) {
+            log.error("❌ Pose 데이터 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
     }
 
     /**
@@ -695,8 +917,19 @@ public class GameService {
 //        }
         // --- ▲ -------------------------------------------------------- ▲ ---
 
+
+        // 전체 프레임 Base64 데이터를 로그로 출력
+        // if (frames != null && !frames.isEmpty()) {
+        //     for (int i = 0; i < frames.size(); i++) {
+        //         String frameData = frames.get(i);
+        //         log.info(" > AI 서버 요청 프레임 [{}] (length={}): {}", i, frameData != null ? frameData.length() : 0, frameData);
+        //     }
+        // } else {
+        //     log.info(" > AI 서버 요청 프레임이 비어 있습니다.");
+        // }
+
         aiWebClient.post()
-                .uri("/api/pose-sequences/classify")
+                .uri("/api/ai/brandnew/analyze")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(AiJudgmentResponse.class)
@@ -1014,6 +1247,54 @@ public class GameService {
     // ##########################################################
 
     /**
+     * 게임 프레임을 로컬 디스크에 저장 (모델 학습용)
+     *
+     * 파일명 형식: {timestamp}_{동작명}_{seq}_frame{00-07}.jpg
+     * 예: 20251128_143022_123456_손 박수_1_frame00.jpg
+     *
+     * finetune_with_game_data.py에서 이 형식을 파싱하여 학습 데이터로 사용
+     */
+    private void saveFramesToLocalDisk(String sessionId, String actionName, List<String> frames, int sequenceId) {
+        try {
+            Path saveDir = Paths.get(gameDataSavePath);
+            if (!Files.exists(saveDir)) {
+                Files.createDirectories(saveDir);
+                log.info("📁 게임 데이터 저장 디렉토리 생성: {}", saveDir.toAbsolutePath());
+            }
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
+
+            for (int i = 0; i < frames.size(); i++) {
+                String frameData = frames.get(i);
+
+                // Base64 디코딩
+                byte[] imageBytes;
+                if (frameData.contains(",")) {
+                    // data:image/jpeg;base64,xxxx 형식인 경우
+                    imageBytes = Base64.getDecoder().decode(frameData.split(",")[1]);
+                } else {
+                    imageBytes = Base64.getDecoder().decode(frameData);
+                }
+
+                // 파일명: {timestamp}_{동작명}_{seq}_frame{00}.jpg
+                String filename = String.format("%s_%s_%d_frame%02d.jpg",
+                        timestamp, actionName, sequenceId, i);
+                Path filePath = saveDir.resolve(filename);
+
+                Files.write(filePath, imageBytes);
+            }
+
+            log.info("💾 게임 데이터 저장 완료: {} (동작: {}, 프레임: {}개)",
+                    timestamp, actionName, frames.size());
+
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Base64 디코딩 실패 (동작: {}): {}", actionName, e.getMessage());
+        } catch (IOException e) {
+            log.error("❌ 파일 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
+    }
+
+    /**
      * (신규) 동작별 평균 점수를 계산하고 GameResult 엔티티에 추가하는 헬퍼 메소드
      */
     private Map<Integer, Double> calculateAndSaveScoresByAction(GameSession finalSession, GameResult gameResult) {
@@ -1124,9 +1405,9 @@ public class GameService {
 
 
     private int determineLevel(double averageScore) {
-        if (averageScore >= 80) return 3;
-        if (averageScore >= 60) return 2;
-        return 1;
+        if (averageScore >= 50) return 3;  // 50점 이상 → 레벨 3 (더 느슨하게!)
+        if (averageScore >= 30) return 2;  // 30점 이상 → 레벨 2
+        return 1;                          // 30점 미만 → 레벨 1
     }
 
     // (신규) 실시간 피드백 발송 헬퍼 메소드
