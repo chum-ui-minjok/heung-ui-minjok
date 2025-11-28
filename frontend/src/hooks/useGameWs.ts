@@ -19,6 +19,7 @@ interface UseGameWsReturn {
   connect: (sessionId: string) => void;
   disconnect: () => void;
   sendFrame: (params: { sessionId: string; blob: Blob; currentPlayTime: number }) => Promise<void>;
+  sendPoseData: (params: { sessionId: string; poseData: number[][]; currentPlayTime: number }) => void;
   clientRef: React.MutableRefObject<Client | null>;
 }
 
@@ -128,7 +129,7 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
     setIsConnecting(false);
   }, []);
 
-  /** 프레임 전송: /app/game/frame 로 JSON 본문 전송 */
+  /** 프레임 전송: /app/game/frame 로 JSON 본문 전송 (기존 이미지 방식) */
   const sendFrame = useCallback(
     async ({ sessionId, blob, currentPlayTime }: { sessionId: string; blob: Blob; currentPlayTime: number }) => {
       const client = clientRef.current;
@@ -155,8 +156,34 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
     [options]
   );
 
+  /** Pose 데이터 전송: /app/game/frame 로 poseData 전송 (새로운 방식) */
+  const sendPoseData = useCallback(
+    ({ sessionId, poseData, currentPlayTime }: { sessionId: string; poseData: number[][]; currentPlayTime: number }) => {
+      const client = clientRef.current;
+      if (!client || !client.connected) return;
+
+      const body = JSON.stringify({
+        sessionId,
+        currentPlayTime,
+        poseData,  // [[x, y], [x, y], ...] 33개 랜드마크
+      });
+
+      try {
+        client.publish({
+          destination: '/app/game/frame',
+          body,
+          headers: { 'content-type': 'application/json' },
+        });
+      } catch (e) {
+        console.error('sendPoseData error:', e);
+        options?.onError?.(e as Error);
+      }
+    },
+    [options]
+  );
+
   /** 언마운트 시 정리 */
   useEffect(() => () => disconnect(), [disconnect]);
 
-  return { isConnected, isConnecting, connect, disconnect, sendFrame, clientRef };
+  return { isConnected, isConnecting, connect, disconnect, sendFrame, sendPoseData, clientRef };
 }
