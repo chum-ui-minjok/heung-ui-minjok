@@ -216,9 +216,9 @@ public class GameService {
     public List<GameSongListResponse> getAvailableGameSongs(int limit) {
         List<Song> songs = songRepository.findAll();
 
-        // 게임 모드(GAME) 기준 재생 횟수 집계
-        Map<Long, Long> playCountMap = listeningHistoryRepository.countBySongAndMode(PlaybackMode.GAME)
-                .stream()
+        // 게임 모드(EXERCISE) 기준 재생 횟수 집계
+        List<Object[]> countResults = listeningHistoryRepository.countBySongAndMode(PlaybackMode.EXERCISE);
+        Map<Long, Long> playCountMap = countResults.stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (Long) row[1]
@@ -241,7 +241,7 @@ public class GameService {
         Song song = songRepository.findById(request.getSongId()).orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
 
         // 청취 이력 기록 (인기곡 집계용 - 게임 모드)
-        listeningHistoryService.recordListening(user, song, PlaybackMode.GAME);
+        listeningHistoryService.recordListening(user, song, PlaybackMode.EXERCISE);
 
         Long songId = song.getId();
         SongBeat songBeat = songBeatRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "비트 정보를 찾을 수 없습니다."));

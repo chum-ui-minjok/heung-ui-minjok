@@ -49,8 +49,8 @@ public class MusicService {
         List<Song> songs = songRepository.findAll();
 
         // 음악 듣기 모드(LISTENING) 기준 재생 횟수 집계
-        Map<Long, Long> playCountMap = listeningHistoryRepository.countBySongAndMode(PlaybackMode.LISTENING)
-                .stream()
+        List<Object[]> countResults = listeningHistoryRepository.countBySongAndMode(PlaybackMode.LISTENING);
+        Map<Long, Long> playCountMap = countResults.stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (Long) row[1]
