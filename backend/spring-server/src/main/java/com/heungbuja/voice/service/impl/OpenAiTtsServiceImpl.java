@@ -31,15 +31,15 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Primary // 이 구현체를 우선 사용
-@Profile({"prod", "!local"}) // local 제외한 모든 프로파일
+@Profile({"prod", "test", "!local"}) // local 제외한 모든 프로파일 + test
 public class OpenAiTtsServiceImpl implements TtsService {
 
     private final TtsCacheService ttsCacheService;
 
-    @Value("${openai.gms.api-key}")
-    private String gmsApiKey;
+    @Value("${openai.api-key:${openai.gms.api-key:}}")
+    private String apiKey;
 
-    @Value("${openai.gms.tts.url:https://gms.ssafy.io/gmsapi/api.openai.com/v1/audio/speech}")
+    @Value("${openai.tts.url:${openai.gms.tts.url:https://api.openai.com/v1/audio/speech}}")
     private String ttsApiUrl;
 
     @Value("${tts.storage.path:./tts-files}")
@@ -72,19 +72,11 @@ public class OpenAiTtsServiceImpl implements TtsService {
                     escapedText, voice
             );
 
-            // 디버깅 로그 추가
-            log.info("===== TTS API 요청 상세 =====");
-            log.info("URL: {}", ttsApiUrl);
-            log.info("API Key 길이: {}", gmsApiKey.length());
-            log.info("API Key (첫 20자): {}...", gmsApiKey.substring(0, Math.min(20, gmsApiKey.length())));
-            log.info("Request Body: {}", requestBody);
-            log.info("============================");
-
             // HTTP 요청 생성
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(ttsApiUrl))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + gmsApiKey)
+                    .header("Authorization", "Bearer " + apiKey)
                     .header("User-Agent", "HeungbujaApp/1.0")
                     .header("Accept", "*/*")
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
@@ -189,7 +181,7 @@ public class OpenAiTtsServiceImpl implements TtsService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(ttsApiUrl))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + gmsApiKey)
+                    .header("Authorization", "Bearer " + apiKey)
                     .header("User-Agent", "HeungbujaApp/1.0")
                     .header("Accept", "*/*")
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
