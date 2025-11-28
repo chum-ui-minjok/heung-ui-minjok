@@ -12,6 +12,7 @@ import WakeWordDetector from "@/components/WakeWordDetector"; // 새로 만든 �
 // 상태 관리 스토어 import
 import { useAudioStore } from "@/store/audioStore";
 import { useGameStore } from "@/store/gameStore";
+import "./HomePage.css";
 
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -77,12 +78,6 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {/* VoiceButton에는 클릭 시 실행할 함수와 비활성화 상태를 넘겨줍니다. */}
-      <VoiceButton onClick={handleStartVoiceCommand} disabled={isVoiceBusy} />
-
-      {/* VoiceOverlay를 HomePage에서 직접 렌더링하여 상태를 전달합니다. */}
-      <VoiceOverlay isVisible={isVoiceBusy} countdown={countdown} isRecording={isRecording} isUploading={isUploading} isPlaying={isPlaying} responseText={responseText} isEmergency={isEmergency} />
     </div>
   );
 };

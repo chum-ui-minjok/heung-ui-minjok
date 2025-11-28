@@ -1,6 +1,5 @@
 import type { SongInfo } from '@/types/song';
 import './SongPage.css';
-import VoiceButton from '@/components/VoiceButton';
 import { useRef, useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAudioStore } from '@/store/audioStore';
@@ -72,8 +71,6 @@ function SongPage() {
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
       />
-
-      <VoiceButton/>
     </div>
   );
 }
