@@ -10,6 +10,8 @@ import com.heungbuja.music.service.MusicService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -42,7 +44,8 @@ public class MusicController {
         if (request.getSongId() == null) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "songId는 필수입니다");
         }
-        MusicPlayResponse response = musicService.playSong(request.getSongId());
+        Long userId = getCurrentUserId();
+        MusicPlayResponse response = musicService.playSong(userId, request.getSongId());
         return ResponseEntity.ok(response);
     }
 
@@ -51,7 +54,25 @@ public class MusicController {
      */
     @PostMapping("/stop")
     public ResponseEntity<ControlResponse> stopMusic() {
-        musicService.stopMusic();
+        Long userId = getCurrentUserId();
+        musicService.stopMusic(userId);
         return ResponseEntity.ok(ControlResponse.success("음악이 종료되었습니다"));
+    }
+
+    /**
+     * SecurityContext에서 현재 인증된 사용자 ID 추출
+     */
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED, "인증이 필요합니다");
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Long) {
+            return (Long) principal;
+        }
+
+        throw new CustomException(ErrorCode.UNAUTHORIZED, "유효하지 않은 인증 정보입니다");
     }
 }
