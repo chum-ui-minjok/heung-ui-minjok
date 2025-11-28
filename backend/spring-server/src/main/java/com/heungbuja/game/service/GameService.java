@@ -48,8 +48,13 @@ import reactor.core.publisher.Mono;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -150,6 +155,13 @@ public class GameService {
     // --- application.yml에서 서버 기본 주소 읽어오기 ---
     @Value("${app.base-url:http://localhost:8080/api}") // 기본값은 로컬
     private String baseUrl;
+
+    // --- 게임 데이터 로컬 저장 설정 ---
+    @Value("${game.data.save-enabled:false}")
+    private boolean gameDataSaveEnabled;
+
+    @Value("${game.data.save-path:../motion-server/app/brandnewTrain/game_data}")
+    private String gameDataSavePath;
 
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
@@ -623,6 +635,12 @@ public class GameService {
                 // --- ▼ (핵심 수정) 2번에 1번만 AI 서버를 호출하도록 변경 ---
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<String> frames = new ArrayList<>(gameSession.getFrameBuffer().values());
+
+                    // --- 게임 데이터 로컬 저장 (모델 학습용) ---
+                    if (gameDataSaveEnabled) {
+                        saveFramesToLocalDisk(sessionId, currentAction.getActionName(), frames, gameSession.getJudgmentCount());
+                    }
+
                     callAiServerForJudgment(sessionId, gameSession, currentAction, frames);
                     log.info(" > AI 서버 요청 실행 (카운트: {})", gameSession.getJudgmentCount());
                 } else {
@@ -1065,6 +1083,54 @@ public class GameService {
     // ##########################################################
     //                      헬퍼 메서드
     // ##########################################################
+
+    /**
+     * 게임 프레임을 로컬 디스크에 저장 (모델 학습용)
+     *
+     * 파일명 형식: {timestamp}_{동작명}_{seq}_frame{00-07}.jpg
+     * 예: 20251128_143022_123456_손 박수_1_frame00.jpg
+     *
+     * finetune_with_game_data.py에서 이 형식을 파싱하여 학습 데이터로 사용
+     */
+    private void saveFramesToLocalDisk(String sessionId, String actionName, List<String> frames, int sequenceId) {
+        try {
+            Path saveDir = Paths.get(gameDataSavePath);
+            if (!Files.exists(saveDir)) {
+                Files.createDirectories(saveDir);
+                log.info("📁 게임 데이터 저장 디렉토리 생성: {}", saveDir.toAbsolutePath());
+            }
+
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"));
+
+            for (int i = 0; i < frames.size(); i++) {
+                String frameData = frames.get(i);
+
+                // Base64 디코딩
+                byte[] imageBytes;
+                if (frameData.contains(",")) {
+                    // data:image/jpeg;base64,xxxx 형식인 경우
+                    imageBytes = Base64.getDecoder().decode(frameData.split(",")[1]);
+                } else {
+                    imageBytes = Base64.getDecoder().decode(frameData);
+                }
+
+                // 파일명: {timestamp}_{동작명}_{seq}_frame{00}.jpg
+                String filename = String.format("%s_%s_%d_frame%02d.jpg",
+                        timestamp, actionName, sequenceId, i);
+                Path filePath = saveDir.resolve(filename);
+
+                Files.write(filePath, imageBytes);
+            }
+
+            log.info("💾 게임 데이터 저장 완료: {} (동작: {}, 프레임: {}개)",
+                    timestamp, actionName, frames.size());
+
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Base64 디코딩 실패 (동작: {}): {}", actionName, e.getMessage());
+        } catch (IOException e) {
+            log.error("❌ 파일 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
+    }
 
     /**
      * (신규) 동작별 평균 점수를 계산하고 GameResult 엔티티에 추가하는 헬퍼 메소드
