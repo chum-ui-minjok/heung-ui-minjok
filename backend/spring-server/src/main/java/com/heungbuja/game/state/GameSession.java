@@ -44,8 +44,11 @@ public class GameSession implements Serializable {
     /** 현재 판정해야 할 다음 동작의 인덱스 (actionTimeline의 인덱스) */
     private int nextActionIndex;
 
-    /** 현재 판정 중인 동작의 프레임들을 임시로 모아두는 버퍼 */
+    /** 현재 판정 중인 동작의 프레임들을 임시로 모아두는 버퍼 (Base64 이미지용) */
     private Map<Double, String> frameBuffer;
+
+    /** 현재 판정 중인 동작의 Pose 좌표를 임시로 모아두는 버퍼 (MediaPipe 좌표용) */
+    private Map<Double, List<List<Double>>> poseBuffer;
 
     /** 마지막으로 프레임을 수신한 시간 (epoch milliseconds) */
     private long lastFrameReceivedTime;
@@ -76,6 +79,7 @@ public class GameSession implements Serializable {
                 .verse2Judgments(new ArrayList<>())
                 .nextActionIndex(0)
                 .frameBuffer(new TreeMap<>())
+                .poseBuffer(new TreeMap<>())
                 .lastFrameReceivedTime(0L)
                 .judgmentCount(0) // <-- 빌더에 초기값 설정 추가
                 .build();
