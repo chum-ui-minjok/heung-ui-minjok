@@ -177,12 +177,12 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
       });
 
       // 전송 데이터 로그
-      console.log('📤 sendPoseData:', {
-        sessionId,
-        currentPlayTime,
-        landmarkCount: poseData.length,
-        sampleLandmarks: poseData.slice(0, 3),  // 처음 3개만 미리보기
-      });
+      // console.log('📤 sendPoseData:', {
+      //   sessionId,
+      //   currentPlayTime,
+      //   landmarkCount: poseData.length,
+      //   sampleLandmarks: poseData.slice(0, 3),  // 처음 3개만 미리보기
+      // });
 
       try {
         client.publish({

@@ -111,11 +111,11 @@ export async function mockGameStart(): Promise<GameStartResponse> {
       },
 
       sectionPatterns: {
-        verse1: [],
+        verse1: ['P1'],
         verse2: {
-          level1: [],
-          level2: [],
-          level3: [],
+          level1: ['P1'],
+          level2: ['P2'],
+          level3: ['P3'],
         }
       },
     },

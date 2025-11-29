@@ -12,7 +12,7 @@ import  VoiceButton from '@/components/VoiceButton'
 import LoadingDots from '@/components/icons/LoadingDots';
 import './GamePage.css';
 
-// TODO: 테스트 후 false로 변경 또는 제거
+// Mock 모드: .env 파일의 VITE_USE_MOCK로 제어
 const useMockMode = import.meta.env.VITE_USE_MOCK === 'true';
 
 function GamePage() {
@@ -446,7 +446,6 @@ function GamePage() {
   // }, []);
 
   // 웹소켓 연결 확인
-  // TODO: 테스트 후 useMockMode 체크 제거 필요
   useEffect(() => {
     if (useMockMode) return; // Mock 모드면 체크 안 함
     if (forceStopRef.current) return;
@@ -478,7 +477,6 @@ function GamePage() {
 
 
   // 자동 카운트다운
-  // TODO: 테스트 후 isConnected 체크 복원 필요
   useEffect(() => {
     const readyToStart = !!(isReady && audioRef.current?.src && (isConnected || useMockMode));
     if (readyToStart && !isGameStarted && !isCounting && !countdownTimerRef.current) {
@@ -721,7 +719,6 @@ function GamePage() {
 
   // === 게임 시작 ===
   async function beginGame() {
-    // TODO: 테스트 후 isConnected 체크 복원 필요
     if ((!isConnected && !useMockMode) || !audioRef.current || !isReady) return;
     startMonitoring();
 
@@ -778,7 +775,6 @@ function GamePage() {
 
   // === 카운트다운 ===
   function startCountdown() {
-    // TODO: 테스트 후 isConnected 체크 복원 필요
     if (isGameStarted || isCounting || (!isConnected && !useMockMode)) return;
     setIsCounting(true);
     setCount(5);
@@ -906,7 +902,7 @@ function GamePage() {
           verse2StartTime: sectionInfo.verse2StartTime ?? 0,
         };
 
-        // TODO: 테스트 후 복원 필요
+        // WebSocket 연결 (Mock 모드가 아닐 때만)
         if (!useMockMode) {
           connect(sessionId);
         }
