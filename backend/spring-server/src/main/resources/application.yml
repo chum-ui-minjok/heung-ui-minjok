@@ -21,7 +21,7 @@ spring:
   # Mongo db, Redis
   data:
     mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:mongodb://heungbu:lastdance@heungbuja-mongo:27017/heungbudb?authSource=admin}
+      uri: ${SPRING_DATA_MONGODB_URI:mongodb://heungbu:lastdance@heungbuja-mongo:27017/heungbuja?authSource=admin}
     redis:
       host: ${SPRING_DATA_REDIS_HOST:heungbuja-redis}
       port: ${SPRING_DATA_REDIS_PORT:6379}
