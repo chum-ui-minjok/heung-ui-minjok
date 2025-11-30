@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './HomePage.css';
-import VoiceButton from '@/components/VoiceButton';
 
 const BASE_URL = import.meta.env.BASE_URL;
 
@@ -49,8 +48,6 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </div>
-      {/* 음성인식 버튼 */}
-      <VoiceButton />
     </div>
   );
 };
