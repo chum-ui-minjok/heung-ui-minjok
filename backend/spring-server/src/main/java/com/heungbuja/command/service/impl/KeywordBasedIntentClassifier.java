@@ -44,6 +44,10 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
     private static final List<String> LISTENING_KEYWORDS = Arrays.asList(
             "노래 들려줘", "음악 틀어줘", "노래 듣고 싶어", "음악 듣고 싶어", "감상 모드", "감상으로"
     );
+    private static final List<String> LISTENING_NO_SONG_KEYWORDS = Arrays.asList(
+            "노래할래", "노래 할래", "노래 듣고싶어", "노래듣고싶어", "노래 들을래", "노래들을래",
+            "음악할래", "음악 할래", "음악 듣고싶어", "음악듣고싶어", "음악 들을래", "음악들을래"
+    );
     private static final List<String> EXERCISE_NO_SONG_KEYWORDS = Arrays.asList(
             "게임 시작", "게임할래", "게임하고 싶어", "게임 모드", "게임 해줘",
             "체조 시작", "체조하고 싶어", "운동할래", "체조할래", "같이 운동해줘", "체조 모드", "운동 모드"
@@ -119,6 +123,9 @@ public class KeywordBasedIntentClassifier implements IntentClassifier {
         }
         if (containsAny(normalized, LISTENING_KEYWORDS)) {
             return IntentResult.of(Intent.MODE_LISTENING);
+        }
+        if (containsAny(normalized, LISTENING_NO_SONG_KEYWORDS)) {
+            return IntentResult.of(Intent.MODE_LISTENING_NO_SONG);
         }
         if (containsAny(normalized, EXERCISE_NO_SONG_KEYWORDS)) {
             return IntentResult.of(Intent.MODE_EXERCISE_NO_SONG);
