@@ -529,6 +529,16 @@ public class McpCommandServiceImpl implements CommandService {
             case "start_game" -> "게임을 시작할게요";
 
             case "start_game_with_song" -> {
+                // 실패 시 에러 메시지 반환
+                if (!lastResult.isSuccess()) {
+                    String errorMsg = lastResult.getErrorMessage();
+                    if (errorMsg != null && errorMsg.contains("비트 정보")) {
+                        yield "죄송해요, 이 노래는 아직 게임 준비가 안 됐어요";
+                    } else if (errorMsg != null && errorMsg.contains("노래를 찾을 수 없")) {
+                        yield "죄송해요, 해당 노래를 찾을 수 없어요";
+                    }
+                    yield "게임을 시작할 수 없어요. 다시 시도해주세요";
+                }
                 // Tool arguments에서 곡명 추출 시도
                 if (lastResult.getData() instanceof Map) {
                     @SuppressWarnings("unchecked")
