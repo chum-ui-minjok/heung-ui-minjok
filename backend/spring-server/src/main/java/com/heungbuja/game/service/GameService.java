@@ -522,9 +522,26 @@ public class GameService {
         int camStartBeat = verseSection.getStartBeat() + 32;
         int camEndBeat = camStartBeat + (16 * 6);
 
+        // camEndBeat가 섹션 범위를 초과하면 섹션의 endBeat로 제한
+        if (camEndBeat > verseSection.getEndBeat()) {
+            camEndBeat = verseSection.getEndBeat();
+            log.debug("{}의 camEndBeat가 섹션 범위를 초과하여 {}로 조정", verseLabel, camEndBeat);
+        }
+
+        double startTime = beatNumToTimeMap.getOrDefault(camStartBeat, 0.0);
+        double endTime = beatNumToTimeMap.getOrDefault(camEndBeat, 0.0);
+
+        // endTime이 0이면 beatNumToTimeMap에 해당 beat가 없는 것 → 마지막 beat 시간 사용
+        if (endTime == 0.0 && !beatNumToTimeMap.isEmpty()) {
+            int maxBeat = beatNumToTimeMap.keySet().stream().max(Integer::compareTo).orElse(0);
+            endTime = beatNumToTimeMap.getOrDefault(maxBeat, 0.0);
+            log.warn("{}의 camEndBeat({})가 beatMap에 없어서 maxBeat({})의 시간({})을 사용",
+                    verseLabel, camEndBeat, maxBeat, endTime);
+        }
+
         return GameStartResponse.SegmentRange.builder()
-                .startTime(beatNumToTimeMap.getOrDefault(camStartBeat, 0.0))
-                .endTime(beatNumToTimeMap.getOrDefault(camEndBeat, 0.0))
+                .startTime(startTime)
+                .endTime(endTime)
                 .build();
     }
 

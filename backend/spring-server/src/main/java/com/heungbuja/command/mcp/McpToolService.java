@@ -21,6 +21,7 @@ import com.heungbuja.song.service.ListeningHistoryService;
 import com.heungbuja.song.service.SongService;
 import com.heungbuja.user.entity.User;
 import com.heungbuja.user.service.UserService;
+import com.heungbuja.voice.enums.Intent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -186,13 +187,15 @@ public class McpToolService {
             throw new IllegalArgumentException("action이 필요합니다");
         }
 
-        String message = switch (action.toUpperCase()) {
-            case "PAUSE" -> "일시정지할게요";
-            case "RESUME" -> "다시 재생할게요";
-            case "NEXT" -> "다음 곡으로 넘어갈게요";
-            case "STOP" -> "재생을 멈출게요";
+        Intent intent = switch (action.toUpperCase()) {
+            case "PAUSE" -> Intent.MUSIC_PAUSE;
+            case "RESUME" -> Intent.MUSIC_RESUME;
+            case "NEXT" -> Intent.MUSIC_NEXT;
+            case "STOP" -> Intent.MUSIC_STOP;
             default -> throw new IllegalArgumentException("알 수 없는 action: " + action);
         };
+
+        String message = responseGenerator.generateResponse(intent);
 
         // action 정보를 data에 포함 (McpCommandServiceImpl에서 Intent 매핑에 사용)
         Map<String, Object> data = new HashMap<>();
@@ -290,7 +293,7 @@ public class McpToolService {
 
         emergencyService.detectEmergencyWithSchedule(request);
 
-        String message = "괜찮으세요? 대답해주세요!";
+        String message = responseGenerator.generateResponse(Intent.EMERGENCY);
 
         return McpToolResult.success(toolCall.getId(), toolCall.getName(), message);
     }
@@ -306,7 +309,7 @@ public class McpToolService {
 
         emergencyService.cancelRecentReport(userId);
 
-        String message = "괜찮으시군요. 신고를 취소했습니다";
+        String message = responseGenerator.generateResponse(Intent.EMERGENCY_CANCEL);
 
         return McpToolResult.success(toolCall.getId(), toolCall.getName(), message);
     }
@@ -322,7 +325,7 @@ public class McpToolService {
 
         emergencyService.confirmRecentReport(userId);
 
-        String message = "알겠습니다. 지금 바로 신고하겠습니다";
+        String message = responseGenerator.generateResponse(Intent.EMERGENCY_CONFIRM);
 
         return McpToolResult.success(toolCall.getId(), toolCall.getName(), message);
     }
@@ -344,11 +347,13 @@ public class McpToolService {
         PlaybackMode mode = PlaybackMode.valueOf(modeStr.toUpperCase());
         conversationContextService.changeMode(userId, mode);
 
-        String message = switch (mode) {
-            case HOME -> "홈 화면으로 이동할게요";
-            case LISTENING -> "노래 감상 모드로 전환할게요";
-            case EXERCISE -> "체조 모드를 시작할게요";
+        Intent intent = switch (mode) {
+            case HOME -> Intent.MODE_HOME;
+            case LISTENING -> Intent.MODE_LISTENING;
+            case EXERCISE -> Intent.MODE_EXERCISE;
         };
+
+        String message = responseGenerator.generateResponse(intent);
 
         // mode 정보를 data에 포함 (McpCommandServiceImpl에서 Intent 매핑에 사용)
         Map<String, Object> data = new HashMap<>();
@@ -381,7 +386,7 @@ public class McpToolService {
             Map<String, Object> listData = new HashMap<>();
             listData.put("intent", "MODE_EXERCISE_NO_SONG");
 
-            String message = "게임 목록을 보여드릴게요";
+            String message = responseGenerator.generateResponse(Intent.MODE_EXERCISE_NO_SONG);
 
             log.info("게임 목록 화면 이동: userId={}", userId);
 
@@ -438,8 +443,7 @@ public class McpToolService {
         gameData.put("gameInfo", gameResponse); // CommandGameStart 전체를 담음
 
         // 9. GPT와 사용자에게 전달할 음성 메시지 생성
-        String message = String.format("%s의 '%s' 노래로 체조를 시작합니다. 화면을 봐주세요.",
-                song.getArtist(), song.getTitle());
+        String message = responseGenerator.gameStartMessage(song.getArtist(), song.getTitle());
 
         log.info("게임 시작 Tool 실행 완료: userId={}, sessionId={}, songId={}",
                 userId, commandGameSession.getSessionId(), song.getId());
@@ -579,8 +583,7 @@ public class McpToolService {
             gameData.put("intent", "START_GAME_IMMEDIATELY");
             gameData.put("gameInfo", gameResponse); // CommandGameStart 전체를 담음
 
-            String message = String.format("%s의 '%s' 노래로 체조를 시작합니다. 화면을 봐주세요.",
-                    song.getArtist(), song.getTitle());
+            String message = responseGenerator.gameStartMessage(song.getArtist(), song.getTitle());
 
             log.info("특정 노래로 게임 시작 완료: userId={}, sessionId={}, songId={}",
                     userId, commandGameSession.getSessionId(), songId);
