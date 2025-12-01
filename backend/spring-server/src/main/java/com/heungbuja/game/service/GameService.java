@@ -532,23 +532,6 @@ public class GameService {
      * ChoreographyPattern 데이터에서 패턴 ID로 실제 동작 시퀀스를 찾는 헬퍼 메소드
      */
     private List<Integer> findPatternSequenceById(ChoreographyPattern patternData, String patternId) {
-        // --- ▼ 임시 디버깅 코드 ▼ ---
-//        log.info("찾으려는 patternId: '{}', 길이: {}", patternId, patternId.length());
-        if (patternData.getPatterns() != null) {
-            patternData.getPatterns().forEach(p -> {
-//                log.info("patternData : {}", p);
-                String currentId = p.getPatternId(); // getId() 결과를 변수에 먼저 담음
-                if (currentId != null) {
-                    log.info("DB에 있는 id: '{}', 길이: {}", currentId, currentId.length());
-//                    log.info("두 문자열이 같은가? {}", patternId.equals(currentId));
-                } else {
-                    log.warn("DB에 id가 null인 패턴 데이터가 존재합니다!"); // <-- 이 로그가 찍히는지 확인!
-                }
-            });
-        } else {
-            log.error("patternData.getPatterns()가 null입니다!");
-        }
-        // --- ▲ -------------------- ▲ ---
         return patternData.getPatterns().stream()
                 .filter(p -> patternId.equals(p.getPatternId()))
                 .findFirst()
