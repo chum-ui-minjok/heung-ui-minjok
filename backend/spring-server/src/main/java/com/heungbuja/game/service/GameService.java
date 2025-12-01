@@ -606,11 +606,17 @@ public class GameService {
         String sessionId = request.getSessionId();
         double currentPlayTime = request.getCurrentPlayTime();
 
-        GameState gameState = getGameState(sessionId);
+        GameState gameState;
+        try {
+            gameState = getGameState(sessionId);
+        } catch (CustomException e) {
+            log.debug("GameState가 존재하지 않습니다. 이미 종료된 세션일 수 있습니다: sessionId={}", sessionId);
+            return;
+        }
         GameSession gameSession = getGameSession(sessionId);
 
         if (gameSession == null) {
-            log.error("GameSession이 존재하지 않습니다: sessionId={}", sessionId);
+            log.debug("GameSession이 존재하지 않습니다: sessionId={}", sessionId);
             return;
         }
 
