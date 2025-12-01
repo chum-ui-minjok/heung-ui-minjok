@@ -3,6 +3,7 @@
   align-items: center;
   gap: 24px;
   margin-bottom: 25px;
+  cursor: pointer;
 }
 
 /* 왼쪽 번호 */

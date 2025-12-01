@@ -1,16 +1,25 @@
-import type { GameEndResponse } from '@/types/game';
+import type { GameStartResponse, GameEndResponse } from '@/types/game';
 import api from './index';
 import { useGameStore } from '@/store/gameStore';
-import { mockGameStart } from '@/mocks/gameStart.mock';
 
-// const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+export const gameStartApi = (songId: number) => {
+  const userIdStr = localStorage.getItem('userId');
 
-export const gameStartApi = () => {
-  // if (USE_MOCK) {
-    return mockGameStart();
-  // }
-  // return api.post<GameStartResponse>('/game/start', { songId }, true);
-}
+  if (!userIdStr) {
+    throw new Error('사용자 ID가 없습니다. 다시 로그인해 주세요.');
+  }
+
+  const userId = Number(userIdStr);
+  if (Number.isNaN(userId)) {
+    throw new Error('잘못된 사용자 ID입니다.');
+  }
+
+  return api.post<GameStartResponse, { userId: number; songId: number }>(
+    '/game/start',
+    { userId, songId },
+    true,
+  );
+};
 
 export const gameEndApi = () => {
   const { sessionId } = useGameStore.getState();

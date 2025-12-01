@@ -8,6 +8,9 @@ import LoadingDots from '@/components/icons/LoadingDots';
 import './TutorialPage.css';
 
 type Step = 1 | 2 | 3;
+interface TutorialLocationStateFromList {
+  songId: number;
+}
 
 function TutorialPage() {
   const nav = useNavigate();
@@ -42,19 +45,32 @@ function TutorialPage() {
   useEffect(() => {
     setLoading(true);
 
-    const voiceCommandData = location.state as GameStartResponse | undefined;
+    const state = location.state as
+      | GameStartResponse
+      | TutorialLocationStateFromList
+      | undefined;
 
+    const voiceCommandData =
+      state && 'gameInfo' in state ? (state as GameStartResponse) : undefined;
+    const fromListSongId =
+      state && 'songId' in state ? (state as TutorialLocationStateFromList).songId : undefined;
+
+    // 1) 음성 명령으로 이미 GameStartResponse를 받은 경우
     if (voiceCommandData?.gameInfo) {
       console.log('음성 명령으로 받은 게임 데이터를 store에 저장:', voiceCommandData);
       setFromApi(voiceCommandData);
       setSongId(voiceCommandData.gameInfo.songId);
       setLoading(false);
-    } else {
+      return;
+    }
+
+    // 2) 목록에서 songId만 넘어온 경우 → start API 호출
+    if (fromListSongId) {
       const initGameData = async () => {
         try {
-          const res = await gameStartApi();
+          const res = await gameStartApi(fromListSongId);
           setFromApi(res);
-          setSongId(res.gameInfo.songId);
+          setSongId(fromListSongId);
           console.log('게임 데이터 로드 완료:', res);
         } catch (e) {
           console.error('게임 데이터 로드 실패:', e);
@@ -62,9 +78,15 @@ function TutorialPage() {
           setLoading(false);
         }
       };
-      initGameData();
+      void initGameData();
+      return;
     }
-  }, [location.state, setFromApi]);
+
+    // 3) 그 외: state가 없는 경우 (예외 상황)
+    console.error('songId 또는 gameInfo가 없습니다. 이전 화면으로 돌아갑니다.');
+    setLoading(false);
+    nav('/home', { replace: true });
+  }, [location.state, setFromApi, nav]);
 
   // ===== 카메라 시작 / 정리 =====
   useEffect(() => {

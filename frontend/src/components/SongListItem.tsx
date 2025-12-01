@@ -1,13 +1,18 @@
-import type { Song } from '@/types/song';
+import type { RankedSong } from '@/types/song';
 import './SongListItem.css';
 
 interface Props {
-  song: Song & { rank: number };
+  song: RankedSong;
+  onClick?: (song: RankedSong) => void;
 }
 
-function SongListItem({ song }: Props) {
+function SongListItem({ song, onClick }: Props) {
+  const handleClick = () => {
+    if (onClick) onClick(song);
+  };
+
   return (
-    <div className="song-item">
+    <div className="song-item" onClick={handleClick}>
       <div className="song-item__rank">{song.rank}</div>
 
       <div className="song-item__card">
