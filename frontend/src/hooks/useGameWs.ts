@@ -186,7 +186,7 @@ export function useGameWs(options?: UseGameWsOptions): UseGameWsReturn {
 
       try {
         client.publish({
-          destination: '/app/game/frame',
+          destination: '/app/game/pose',
           body,
           headers: { 'content-type': 'application/json' },
         });

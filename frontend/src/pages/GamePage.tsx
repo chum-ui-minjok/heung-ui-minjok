@@ -20,7 +20,7 @@ function GamePage() {
   // === 상태 / 참조 ===
   const motionVideoRef = useRef<HTMLVideoElement | null>(null); // 동작 영상
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const poseIntervalRef = useRef<number | null>(null);
+  const poseScheduleTimersRef = useRef<number[]>([]);
   const countdownTimerRef = useRef<number | null>(null);
   const hasNavigatedRef = useRef(false);
   const songBpmRef = useRef<number>(120);
@@ -47,7 +47,7 @@ function GamePage() {
   const switchLatenciesRef = useRef<number[]>([]);
   const patternSwitchLatenciesRef = useRef<number[]>([]);
   const frameIntervalsRef = useRef<number[]>([]);
-  const captureCostRef = useRef<number[]>([]);
+  // const captureCostRef = useRef<number[]>([]);
 
   const pendingSwitchRef = useRef<{
     section: SectionKey;
@@ -128,7 +128,7 @@ function GamePage() {
   const {
     videoRef,
     isReady,
-    isCameraOn,
+    // isCameraOn,
     isDetecting,
     error,
     currentLandmarks,
@@ -736,11 +736,8 @@ function GamePage() {
     const audio = audioRef.current;
     if (!audio || !segmentInfo) return;
 
-    // 기존 스케줄 클리어
-    if (poseIntervalRef.current) {
-      clearTimeout(poseIntervalRef.current);
-      poseIntervalRef.current = null;
-    }
+    // 기존 스케줄 전부 클리어
+    clearPoseScheduleTimers();
 
     const verse1 = segmentInfo.verse1cam;
     const verse2 = segmentInfo.verse2cam;
@@ -753,23 +750,30 @@ function GamePage() {
       const endDelay = Math.max(0, (segment.endTime - now) * 1000);
 
       // 시작 시점에 Pose 감지 시작
-      window.setTimeout(() => {
+      const startTimer = window.setTimeout(() => {
         if (audio.currentTime < segment.endTime) {
           console.log('🦴 Pose 감지 시작:', segment.startTime);
           startDetection();
         }
       }, startDelay);
+      poseScheduleTimersRef.current.push(startTimer);
 
       // 종료 시점에 Pose 감지 중지
-      window.setTimeout(() => {
+      const endTimer = window.setTimeout(() => {
         console.log('🦴 Pose 감지 중지:', segment.endTime);
         stopDetection();
       }, endDelay);
+      poseScheduleTimersRef.current.push(endTimer);
     };
 
     // verse1, verse2 구간 스케줄링
     scheduleSegment(verse1);
     scheduleSegment(verse2);
+  }
+
+  function clearPoseScheduleTimers() {
+    poseScheduleTimersRef.current.forEach((t) => clearTimeout(t));
+    poseScheduleTimersRef.current = [];
   }
 
   // === 카운트다운 ===
@@ -803,13 +807,7 @@ function GamePage() {
     setWsMessage(null);
     setRedirectReason(null);
 
-    stopMonitoring();
-    stopCamera();
-    disconnect();
-    if (audioRef.current) {
-      audioRef.current.onerror = null;
-      audioRef.current.pause();
-    }
+    cleanupGameResources();
 
     const res: GameEndResponse = await gameEndApi();
 
@@ -825,6 +823,7 @@ function GamePage() {
     stopMonitoring();
     stopCamera();
     disconnect();
+    clearPoseScheduleTimers();
     if (audioRef.current) {
       audioRef.current.onerror = null;
       audioRef.current.pause();
@@ -839,6 +838,7 @@ function GamePage() {
   async function handleForceStop() {
     forceStopRef.current = true;
     cleanupGameResources();
+    gameEndApi().catch(() => {}); // 서버에 종료 알림 (응답 불필요)
     setRedirectReason(null);
     setWsMessage(null);
     clear();
@@ -915,11 +915,11 @@ function GamePage() {
     })();
 
     return () => {
-      stopCamera();
-      stopMonitoring();
-      if (audioRef.current) {
-        audioRef.current.onerror = null;
-        audioRef.current.pause();
+      // 뒤로가기 등 페이지 이탈 시 리소스 정리
+      // forceStopRef가 true면 이미 handleForceStop/goToResultOnce에서 처리됨
+      if (!forceStopRef.current) {
+        cleanupGameResources();
+        gameEndApi().catch(() => {}); // 응답 불필요, 에러 무시
       }
       if (sectionMessageTimerRef.current) {
         clearTimeout(sectionMessageTimerRef.current);
