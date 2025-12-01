@@ -260,6 +260,5 @@ export const useVoiceCommand = (
     response,
     responseText,
     sendCommand,
-    clearAudioBlob,
   };
 };
