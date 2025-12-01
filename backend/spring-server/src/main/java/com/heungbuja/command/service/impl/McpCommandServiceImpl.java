@@ -531,7 +531,7 @@ public class McpCommandServiceImpl implements CommandService {
             case "start_game_with_song" -> {
                 // 실패 시 에러 메시지 반환
                 if (!lastResult.isSuccess()) {
-                    String errorMsg = lastResult.getErrorMessage();
+                    String errorMsg = lastResult.getMessage();
                     if (errorMsg != null && errorMsg.contains("비트 정보")) {
                         yield "죄송해요, 이 노래는 아직 게임 준비가 안 됐어요";
                     } else if (errorMsg != null && errorMsg.contains("노래를 찾을 수 없")) {
