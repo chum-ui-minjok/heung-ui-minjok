@@ -47,7 +47,7 @@ function GamePage() {
   const switchLatenciesRef = useRef<number[]>([]);
   const patternSwitchLatenciesRef = useRef<number[]>([]);
   const frameIntervalsRef = useRef<number[]>([]);
-  const captureCostRef = useRef<number[]>([]);
+  // const captureCostRef = useRef<number[]>([]);
 
   const pendingSwitchRef = useRef<{
     section: SectionKey;
@@ -128,7 +128,7 @@ function GamePage() {
   const {
     videoRef,
     isReady,
-    isCameraOn,
+    // isCameraOn,
     isDetecting,
     error,
     currentLandmarks,
