@@ -6,6 +6,15 @@
   background: var(--color-bg);
 }
 
+/* 숨겨진 비디오 - 카메라 초기화용 */
+.tutorial-hidden-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* 상단 단계 인디케이터 */
 .tutorial-steps {
   margin-top: 40px;
@@ -129,6 +138,47 @@
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1); /* 거울 효과 */
+}
+
+/* 가이드 SVG 오버레이 */
+.tutorial-guide-svg {
+  position: absolute;
+  bottom: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 100%;
+  color: rgba(150, 150, 150, 0.6);
+  transition: color 0.3s ease;
+  pointer-events: none;
+  
+}
+
+.tutorial-guide-svg.matched {
+  color: #2fd27d;
+}
+
+/* 건너뛰기 버튼 */
+.tutorial-skip-btn {
+  margin-top: 16px;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.tutorial-skip-btn:hover {
+  background: rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
+}
+
+.tutorial-skip-btn:active {
+  transform: translateY(0);
 }
 
 /* 안내 문구 공통 스타일 */
