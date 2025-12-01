@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CCard,
@@ -8,19 +8,18 @@ import {
   CContainer,
   CRow,
 } from "@coreui/react";
-import { SimpleSongUploadModal } from "../components";
 import DashboardHeader from "../components/DashboardHeader";
 import { useNotificationStore } from "../stores";
 import "../styles/dashboard.css";
 import AdminLayout from "../layouts/AdminLayout";
 import {
-  createQuickRegisterNavItem,
+  quickRegisterNavItem,
   developerBaseNavItems,
+  adminManagementNavItem,
 } from "../config/navigation";
 
 const DeveloperDashboardPage = () => {
   const navigate = useNavigate();
-  const [isSongUploadModalOpen, setIsSongUploadModalOpen] = useState(false);
   const clearUnread = useNotificationStore((state) => state.clearUnread);
 
   useEffect(() => {
@@ -37,9 +36,10 @@ const DeveloperDashboardPage = () => {
   const navigationItems = useMemo(
     () => [
       ...developerBaseNavItems,
-      createQuickRegisterNavItem(() => setIsSongUploadModalOpen(true)),
+      quickRegisterNavItem,
+      adminManagementNavItem,
     ],
-    [setIsSongUploadModalOpen]
+    []
   );
 
   return (
@@ -71,11 +71,6 @@ const DeveloperDashboardPage = () => {
             </CCard>
           </CCol>
         </CRow>
-
-        <SimpleSongUploadModal
-          isOpen={isSongUploadModalOpen}
-          onClose={() => setIsSongUploadModalOpen(false)}
-        />
       </CContainer>
     </AdminLayout>
   );

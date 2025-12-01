@@ -15,14 +15,17 @@ export const useAuth = () => {
     setError("");
 
     try {
+      let role: string;
+      
       if (useMockData) {
         // Mock 모드: 자동 로그인
         await new Promise((resolve) => setTimeout(resolve, 500));
         localStorage.setItem("accessToken", "mock-token-12345");
         localStorage.setItem("adminId", "1"); // Mock adminId
         localStorage.setItem("adminName", credentials.username || "관리자");
-        localStorage.setItem("adminRole", "SUPER_ADMIN");
-        navigate("/dashboard/admin");
+        // Mock 모드에서는 기본적으로 SUPER_ADMIN으로 설정
+        role = "SUPER_ADMIN";
+        localStorage.setItem("adminRole", role);
       } else {
         const response = await loginApi(credentials);
 
@@ -45,14 +48,18 @@ export const useAuth = () => {
           );
         }
         if (response.role) {
-          localStorage.setItem("adminRole", response.role);
+          role = response.role;
+          localStorage.setItem("adminRole", role);
         } else {
-          localStorage.setItem("adminRole", "ADMIN");
+          role = "ADMIN";
+          localStorage.setItem("adminRole", role);
         }
-
-        // 대시보드로 이동
-        navigate("/dashboard/admin");
       }
+
+      // 역할에 따라 다른 대시보드로 이동
+      const isSuperAdmin = role === "SUPER_ADMIN" || role === "superadmin";
+      const dashboardPath = isSuperAdmin ? "/dashboard/developer" : "/dashboard/admin";
+      navigate(dashboardPath);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.";

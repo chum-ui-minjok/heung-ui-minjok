@@ -9,19 +9,16 @@ import {
   CContainer,
   CRow,
 } from "@coreui/react";
-import { cilMobile, cilUserPlus } from "@coreui/icons";
 import {
   Button,
   EmergencyList,
-  WebSocketStatus,
-  DeviceRegisterModal,
-  UserRegisterModal,
   EmergencyAlertModal,
   DeviceUserGrid,
 } from "../components";
+import WebSocketStatus from "../components/WebSocketStatus";
 import DashboardHeader from "../components/DashboardHeader";
 import AdminLayout from "../layouts/AdminLayout";
-import { adminBaseNavItems } from "../config/navigation";
+import { adminBaseNavItems, deviceRegisterNavItem, userRegisterNavItem } from "../config/navigation";
 import { useWebSocket } from "../hooks/useWebSocket";
 import {
   useEmergencyStore,
@@ -46,8 +43,6 @@ const DashboardPage = () => {
   const navigate = useNavigate();
 
   // 모달 상태
-  const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
   const [currentEmergencyAlert, setCurrentEmergencyAlert] =
     useState<EmergencyReport | null>(null);
@@ -186,20 +181,10 @@ const DashboardPage = () => {
   const navigationItems = useMemo(
     () => [
       ...adminBaseNavItems,
-      {
-        label: "기기 등록",
-        description: "새 기기를 등록합니다",
-        icon: cilMobile,
-        onClick: () => setIsDeviceModalOpen(true),
-      },
-      {
-        label: "어르신 등록",
-        description: "새로운 사용자를 등록합니다",
-        icon: cilUserPlus,
-        onClick: () => setIsUserModalOpen(true),
-      },
+      deviceRegisterNavItem,
+      userRegisterNavItem,
     ],
-    [setIsDeviceModalOpen, setIsUserModalOpen]
+    []
   );
 
   return (
@@ -211,7 +196,7 @@ const DashboardPage = () => {
         />
 
         <CRow className="g-4">
-          <CCol xs={12} xl={8}>
+          <CCol xs={12}>
             <CCard className="h-100">
               <CCardHeader className="d-flex justify-content-between align-items-center">
                 <span className="fw-semibold">
@@ -240,23 +225,9 @@ const DashboardPage = () => {
               </CCardBody>
             </CCard>
           </CCol>
-
-          <CCol xs={12} xl={4}>
-            <CCard className="h-100">
-              <CCardHeader className="fw-semibold">
-                🔌 실시간 연결 상태
-              </CCardHeader>
-              <CCardBody>
-                <WebSocketStatus
-                  isConnected={isConnected}
-                  isConnecting={isConnecting}
-                />
-              </CCardBody>
-            </CCard>
-          </CCol>
         </CRow>
 
-        <CRow className="g-4">
+        <CRow className="g-4 mt-3">
           <CCol xs={12}>
             <CCard>
               <CCardHeader className="d-flex justify-content-between align-items-center">
@@ -272,19 +243,6 @@ const DashboardPage = () => {
           </CCol>
         </CRow>
 
-        <DeviceRegisterModal
-          isOpen={isDeviceModalOpen}
-          onClose={() => setIsDeviceModalOpen(false)}
-        />
-
-        <UserRegisterModal
-          isOpen={isUserModalOpen}
-          onClose={() => {
-            setIsUserModalOpen(false);
-            loadUsers(); // 어르신 등록 후 목록 새로고침
-          }}
-        />
-
         <EmergencyAlertModal
           isOpen={isEmergencyAlertOpen}
           onClose={() => {
@@ -295,6 +253,11 @@ const DashboardPage = () => {
           onAcknowledge={(reportId) => {
             console.log("Emergency acknowledged:", reportId);
           }}
+        />
+
+        <WebSocketStatus
+          isConnected={isConnected}
+          isConnecting={isConnecting}
         />
       </CContainer>
     </AdminLayout>

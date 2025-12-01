@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { CNav, CNavItem } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import type { NavigationItem } from "../config/navigation";
@@ -13,6 +13,7 @@ interface AdminLayoutProps {
 
 const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
   const { logout } = useAuth();
+  const location = useLocation();
   const [adminName, setAdminName] = useState("관리자");
   const [adminRole, setAdminRole] = useState("ADMIN");
 
@@ -33,14 +34,17 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
     return () => window.removeEventListener("storage", syncProfile);
   }, []);
 
+  // 현재 경로에 따라 페이지 타입 결정
+  const isDeveloperPage = location.pathname.startsWith('/dashboard/developer');
+  const pageType = isDeveloperPage ? '개발자 페이지' : '관리자 페이지';
+
   return (
     <div className="admin-layout">
       <aside className="admin-layout__sidebar">
         <h1 className="admin-layout__brand">
-          <span role="img" aria-label="logo">
-            🎵
-          </span>
-          흥부자
+          <img src="../../public/logo.svg" alt="로고" className="admin-layout__logo" />
+          <span>흥의민족</span>
+          <span className="admin-layout__page-type">{pageType}</span>
         </h1>
 
         <CNav className="flex-column gap-2">
@@ -49,12 +53,17 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
               {item.to ? (
                 <NavLink
                   to={item.to}
-                  className={({ isActive }) =>
-                    `admin-layout__nav-link ${isActive ? "active" : ""}`
-                  }
+                  className={({ isActive }) => {
+                    // 특정 경로는 정확히 일치할 때만 활성화
+                    const exactMatchPaths = ["/dashboard/developer", "/dashboard/admin"];
+                    const isExactMatch = exactMatchPaths.includes(item.to || "")
+                      ? location.pathname === item.to
+                      : isActive;
+                    return `admin-layout__nav-link ${isExactMatch ? "active" : ""}`;
+                  }}
                 >
                   {item.icon && (
-                    <CIcon icon={item.icon} size="lg" className="me-3" />
+                    <CIcon icon={item.icon} className="admin-layout__nav-icon" />
                   )}
                   <div className="admin-layout__nav-text">
                     <span className="admin-layout__nav-title">
@@ -74,7 +83,7 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
                   onClick={item.onClick}
                 >
                   {item.icon && (
-                    <CIcon icon={item.icon} size="lg" className="me-3" />
+                    <CIcon icon={item.icon} className="admin-layout__nav-icon" />
                   )}
                   <div className="admin-layout__nav-text">
                     <span className="admin-layout__nav-title">
@@ -101,9 +110,14 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
                 <NavLink
                   key={`top-${item.to}`}
                   to={item.to}
-                  className={({ isActive }) =>
-                    `admin-layout__topnav-item ${isActive ? "active" : ""}`
-                  }
+                  className={({ isActive }) => {
+                    // 특정 경로는 정확히 일치할 때만 활성화
+                    const exactMatchPaths = ["/dashboard/developer", "/dashboard/admin"];
+                    const isExactMatch = exactMatchPaths.includes(item.to || "")
+                      ? location.pathname === item.to
+                      : isActive;
+                    return `admin-layout__topnav-item ${isExactMatch ? "active" : ""}`;
+                  }}
                 >
                   <span>{item.label}</span>
                 </NavLink>

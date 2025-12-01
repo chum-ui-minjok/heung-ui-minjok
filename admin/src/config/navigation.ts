@@ -1,8 +1,10 @@
 import {
   cilAudio,
   cilCloudUpload,
-  cilCode,
+  cilMobile,
+  cilPeople,
   cilSpeedometer,
+  cilUserPlus,
 } from "@coreui/icons";
 
 export interface NavigationItem {
@@ -24,7 +26,7 @@ export const adminBaseNavItems: NavigationItem[] = [
 
 export const sharedSongNavItems: NavigationItem[] = [
   {
-    to: "/visualization",
+    to: "/dashboard/developer/visualization",
     label: "곡 시각화",
     description: "악보/모션 미리보기",
     icon: cilAudio,
@@ -32,20 +34,33 @@ export const sharedSongNavItems: NavigationItem[] = [
 ];
 
 export const developerBaseNavItems: NavigationItem[] = [
-  {
-    to: "/dashboard/developer",
-    label: "개발자 페이지",
-    description: "곡 도구와 자료",
-    icon: cilCode,
-  },
   ...sharedSongNavItems,
 ];
 
-export const createQuickRegisterNavItem = (
-  onClick: () => void
-): NavigationItem => ({
+export const quickRegisterNavItem: NavigationItem = {
+  to: "/dashboard/developer/song-upload",
   label: "곡 간편 등록",
   description: "새로운 곡을 빠르게 등록합니다",
   icon: cilCloudUpload,
-  onClick,
-});
+};
+
+export const deviceRegisterNavItem: NavigationItem = {
+  to: "/dashboard/admin/device-register",
+  label: "기기 등록",
+  description: "새 기기를 등록합니다",
+  icon: cilMobile,
+};
+
+export const userRegisterNavItem: NavigationItem = {
+  to: "/dashboard/admin/user-register",
+  label: "어르신 등록",
+  description: "새로운 사용자를 등록합니다",
+  icon: cilUserPlus,
+};
+
+export const adminManagementNavItem: NavigationItem = {
+  to: "/dashboard/developer/admin-management",
+  label: "관리자 관리",
+  description: "관리자 생성 및 관리",
+  icon: cilPeople,
+};

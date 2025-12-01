@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useVisualizationStore } from "../stores";
 import { getSongs, getSongVisualization } from "../api/visualization";
 import { useVisualizationPlayer } from "../hooks";
-import { SimpleSongUploadModal } from "../components";
 import SongSelector from "../components/visualization/SongSelector";
 import VisualizationHeader from "../components/visualization/VisualizationHeader";
 import PlaybackControls from "../components/visualization/PlaybackControls";
@@ -12,14 +11,14 @@ import ActionIndicator from "../components/visualization/ActionIndicator";
 import Timeline from "../components/visualization/Timeline";
 import AdminLayout from "../layouts/AdminLayout";
 import {
-  createQuickRegisterNavItem,
+  quickRegisterNavItem,
   developerBaseNavItems,
+  adminManagementNavItem,
 } from "../config/navigation";
 import "../styles/visualization.css";
 
 const SongVisualizationPage = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [isSongUploadModalOpen, setIsSongUploadModalOpen] = useState(false);
 
   const {
     songs,
@@ -44,9 +43,10 @@ const SongVisualizationPage = () => {
   const navigationItems = useMemo(
     () => [
       ...developerBaseNavItems,
-      createQuickRegisterNavItem(() => setIsSongUploadModalOpen(true)),
+      quickRegisterNavItem,
+      adminManagementNavItem,
     ],
-    [setIsSongUploadModalOpen]
+    []
   );
 
   // 시각화 데이터 로드
@@ -110,10 +110,6 @@ const SongVisualizationPage = () => {
             <p>곡 목록을 불러오는 중...</p>
           </div>
         </div>
-        <SimpleSongUploadModal
-          isOpen={isSongUploadModalOpen}
-          onClose={() => setIsSongUploadModalOpen(false)}
-        />
       </AdminLayout>
     );
   }
@@ -203,10 +199,6 @@ const SongVisualizationPage = () => {
           )}
         </div>
       </div>
-      <SimpleSongUploadModal
-        isOpen={isSongUploadModalOpen}
-        onClose={() => setIsSongUploadModalOpen(false)}
-      />
     </AdminLayout>
   );
 };
