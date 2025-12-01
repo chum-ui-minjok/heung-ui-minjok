@@ -3,12 +3,14 @@ package com.heungbuja.game.service;
 import com.heungbuja.common.exception.CustomException;
 import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.game.domain.GameDetail;
+import com.heungbuja.game.domain.PoseTrainingData;
 import com.heungbuja.game.domain.SpringServerPerformance;
 import com.heungbuja.game.dto.*;
 import com.heungbuja.game.entity.GameResult;
 import com.heungbuja.game.entity.ScoreByAction;
 import com.heungbuja.game.enums.GameSessionStatus;
 import com.heungbuja.game.repository.mongo.GameDetailRepository;
+import com.heungbuja.game.repository.mongo.PoseTrainingDataRepository;
 import com.heungbuja.game.repository.mongo.SpringServerPerformanceRepository;
 import com.heungbuja.game.repository.jpa.GameResultRepository;
 import com.heungbuja.game.state.GameState;
@@ -20,11 +22,14 @@ import com.heungbuja.song.domain.SongBeat;
 import com.heungbuja.song.domain.SongChoreography;
 import com.heungbuja.song.domain.SongLyrics;
 import com.heungbuja.song.entity.Song;
+import com.heungbuja.song.enums.PlaybackMode;
 import com.heungbuja.song.repository.mongo.ChoreographyPatternRepository;
 import com.heungbuja.song.repository.mongo.SongBeatRepository;
 import com.heungbuja.song.repository.mongo.SongChoreographyRepository;
 import com.heungbuja.song.repository.mongo.SongLyricsRepository;
+import com.heungbuja.song.repository.jpa.ListeningHistoryRepository;
 import com.heungbuja.song.repository.jpa.SongRepository;
+import com.heungbuja.song.service.ListeningHistoryService;
 import com.heungbuja.user.entity.User;
 import com.heungbuja.user.repository.UserRepository;
 import com.heungbuja.game.repository.jpa.ActionRepository;
@@ -156,16 +161,21 @@ public class GameService {
     @Value("${app.base-url:http://localhost:8080/api}") // 기본값은 로컬
     private String baseUrl;
 
-    // --- 게임 데이터 로컬 저장 설정 ---
+    // --- 게임 데이터 저장 설정 ---
     @Value("${game.data.save-enabled:false}")
     private boolean gameDataSaveEnabled;
 
     @Value("${game.data.save-path:../motion-server/app/brandnewTrain/game_data}")
     private String gameDataSavePath;
 
+    @Value("${game.data.save-to-db:false}")
+    private boolean gameDataSaveToDb;  // true: MongoDB에 저장 (실제 서버용)
+
     // --- 의존성 주입 ---
     private final UserRepository userRepository;
     private final SongRepository songRepository;
+    private final ListeningHistoryRepository listeningHistoryRepository;
+    private final ListeningHistoryService listeningHistoryService;
     private final SongBeatRepository songBeatRepository;
     private final SongLyricsRepository songLyricsRepository;
     private final SongChoreographyRepository songChoreographyRepository;
@@ -181,6 +191,7 @@ public class GameService {
     private final ActionRepository actionRepository;
     private final MediaUrlService mediaUrlService;
     private final SpringServerPerformanceRepository springServerPerformanceRepository;
+    private final PoseTrainingDataRepository poseTrainingDataRepository;
     private final com.heungbuja.game.repository.mongo.MotionInferenceLogRepository motionInferenceLogRepository;
 
     @Qualifier("aiWebClient") // 여러 WebClient Bean 중 aiWebClient를 특정
@@ -199,14 +210,24 @@ public class GameService {
     }
 
     /**
-     * 게임 가능한 노래 목록 조회 (최대 limit개)
+     * 게임 가능한 노래 목록 조회 (인기순 정렬, 최대 limit개)
      */
     @Transactional(readOnly = true)
     public List<GameSongListResponse> getAvailableGameSongs(int limit) {
         List<Song> songs = songRepository.findAll();
+
+        // 게임 모드(EXERCISE) 기준 재생 횟수 집계
+        List<Object[]> countResults = listeningHistoryRepository.countBySongAndMode(PlaybackMode.EXERCISE);
+        Map<Long, Long> playCountMap = countResults.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
+
         return songs.stream()
+                .map(song -> GameSongListResponse.from(song, playCountMap.getOrDefault(song.getId(), 0L)))
+                .sorted(Comparator.comparing(GameSongListResponse::getPlayCount).reversed())
                 .limit(limit)
-                .map(GameSongListResponse::from)
                 .collect(Collectors.toList());
     }
 
@@ -218,6 +239,10 @@ public class GameService {
         User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         if (!user.getIsActive()) throw new CustomException(ErrorCode.USER_NOT_ACTIVE);
         Song song = songRepository.findById(request.getSongId()).orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
+
+        // 청취 이력 기록 (인기곡 집계용 - 게임 모드)
+        listeningHistoryService.recordListening(user, song, PlaybackMode.EXERCISE);
+
         Long songId = song.getId();
         SongBeat songBeat = songBeatRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "비트 정보를 찾을 수 없습니다."));
         SongLyrics lyricsInfo = songLyricsRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "가사 정보를 찾을 수 없습니다."));
@@ -722,9 +747,12 @@ public class GameService {
                 if (gameSession.getJudgmentCount() % 1 == 0) {
                     List<List<List<Double>>> poseFrames = new ArrayList<>(gameSession.getPoseBuffer().values());
 
-                    // 학습 데이터 저장
+                    // 학습 데이터 저장 (로컬 파일 또는 MongoDB)
                     if (gameDataSaveEnabled) {
                         savePoseDataToLocalDisk(sessionId, currentAction.getActionName(), poseFrames, gameSession.getJudgmentCount());
+                    }
+                    if (gameDataSaveToDb) {
+                        savePoseDataToMongoDB(sessionId, gameSession, currentAction, poseFrames);
                     }
 
                     callAiServerForPoseJudgment(sessionId, gameSession, currentAction, poseFrames);
@@ -821,6 +849,34 @@ public class GameService {
 
         } catch (IOException e) {
             log.error("❌ Pose 데이터 저장 실패 (동작: {}): {}", actionName, e.getMessage());
+        }
+    }
+
+    /**
+     * Pose 좌표 데이터를 MongoDB에 저장 (실제 서버용 - 팀원들 학습 데이터 수집)
+     */
+    private void savePoseDataToMongoDB(String sessionId, GameSession gameSession, ActionTimelineEvent action, List<List<List<Double>>> poseFrames) {
+        try {
+            PoseTrainingData trainingData = PoseTrainingData.builder()
+                    .sessionId(sessionId)
+                    .userId(gameSession.getUserId())
+                    .songId(gameSession.getSongId())
+                    .actionCode(action.getActionCode())
+                    .actionName(action.getActionName())
+                    .poseFrames(poseFrames)
+                    .frameCount(poseFrames.size())
+                    .verified(false)
+                    .createdAt(LocalDateTime.now())
+                    .verse(gameSession.getNextLevel() == null ? "verse1" : "verse2")
+                    .sequenceIndex(gameSession.getNextActionIndex())
+                    .build();
+
+            poseTrainingDataRepository.save(trainingData);
+            log.info("💾 Pose 데이터 MongoDB 저장 완료: sessionId={}, action={}, frames={}",
+                    sessionId, action.getActionName(), poseFrames.size());
+
+        } catch (Exception e) {
+            log.error("❌ Pose 데이터 MongoDB 저장 실패 (동작: {}): {}", action.getActionName(), e.getMessage());
         }
     }
 

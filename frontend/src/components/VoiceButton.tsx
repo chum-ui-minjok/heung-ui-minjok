@@ -53,7 +53,6 @@ const VoiceButton: React.FC = () => {
 
   // Emergency 시 TTS 끝나면 자동으로 다시 녹음 (수동 녹음일 때만 1회)
   useEffect(() => {
-
     // TTS 재생 중이었다가 막 끝난 순간만 감지
     const ttsJustFinished =
       prevIsPlayingRef.current === true &&
@@ -88,7 +87,6 @@ const VoiceButton: React.FC = () => {
   const handleClick = () => {
     console.log('🎤 VoiceButton 클릭됨');
     if (!isRecording && !isUploading && !isPlaying) {
-      autoRetryFlagRef.current = true;
       console.log('⏸️ 노래 & 게임 일시정지');
       requestGameStop();
       pause();
