@@ -21,7 +21,7 @@ import java.util.List;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/music")
+@RequestMapping("/music")
 @RequiredArgsConstructor
 public class MusicController {
 
