@@ -160,6 +160,7 @@
 
 /* 건너뛰기 버튼 */
 .tutorial-skip-btn {
+  position: relative;
   margin-top: 16px;
   padding: 12px 32px;
   border: none;
@@ -179,6 +180,41 @@
 
 .tutorial-skip-btn:active {
   transform: translateY(0);
+}
+
+/* 건너뛰기 버튼 커스텀 툴팁 */
+.skip-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.skip-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+.tutorial-skip-btn:hover .skip-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* 안내 문구 공통 스타일 */

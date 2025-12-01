@@ -409,6 +409,7 @@ function TutorialPage() {
             {step === 2 && (
               <button className="tutorial-skip-btn" onClick={handleSkip}>
                 건너뛰기
+                <span className="skip-tooltip">건너뛰면 게임 점수가 정확하지 않을 수 있어요</span>
               </button>
             )}
           </div>
