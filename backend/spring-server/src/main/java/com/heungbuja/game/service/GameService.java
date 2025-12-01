@@ -1157,7 +1157,11 @@ public class GameService {
 
         Double verse1Avg;
         Double verse2Avg;
-        Map<Integer, Double> avgScoresByActionCode; // actionCode를 Key로 하는 점수 맵
+        Integer finalLevel = null;
+        Map<Integer, Double> avgScoresByActionCode;
+        List<GameSession.JudgmentResult> verse1Judgments = new ArrayList<>();
+        List<GameSession.JudgmentResult> verse2Judgments = new ArrayList<>();
+        List<GameSession.JudgmentResult> allJudgments = new ArrayList<>();
 
         if (finalSession == null) {
             // Redis에 세션이 없는 경우: DB에서 기존 기록을 조회하여 응답 구성
@@ -1167,22 +1171,45 @@ public class GameService {
             log.warn("Redis에서 세션 {}을 찾을 수 없었으나, DB 기록을 바탕으로 결과를 반환합니다.", sessionId);
             verse1Avg = existingResult.getVerse1AvgScore();
             verse2Avg = existingResult.getVerse2AvgScore();
+            finalLevel = existingResult.getFinalLevel();
 
             // DB에 저장된 ScoreByAction 리스트를 Map으로 변환
             avgScoresByActionCode = existingResult.getScoresByAction().stream()
                     .collect(Collectors.toMap(ScoreByAction::getActionCode, ScoreByAction::getAverageScore));
 
+            // DB에서 가져온 경우 상세 판정 정보가 없으므로 기본 응답 반환
+            double finalScore = calculateFinalScore(verse1Avg, verse2Avg);
+            String message = getResultMessage(finalScore);
+            Map<String, Double> scoresByActionName = avgScoresByActionCode.entrySet().stream()
+                    .collect(Collectors.toMap(
+                            entry -> actionCodeToNameMap.getOrDefault(entry.getKey(), "알 수 없는 동작 #" + entry.getKey()),
+                            Map.Entry::getValue
+                    ));
+
+            return GameEndResponse.builder()
+                    .finalScore(finalScore)
+                    .message(message)
+                    .finalLevel(finalLevel)
+                    .scoresByAction(scoresByActionName)
+                    .build();
+
         } else {
             // Redis에 세션이 있는 경우: Redis 데이터를 기반으로 모든 정보 계산 및 저장
-            verse1Avg = calculateScoreFromJudgments(finalSession.getVerse1Judgments());
+            verse1Judgments = finalSession.getVerse1Judgments() != null ? finalSession.getVerse1Judgments() : new ArrayList<>();
+            verse2Judgments = finalSession.getVerse2Judgments() != null ? finalSession.getVerse2Judgments() : new ArrayList<>();
+            allJudgments.addAll(verse1Judgments);
+            allJudgments.addAll(verse2Judgments);
+
+            verse1Avg = calculateScoreFromJudgments(verse1Judgments);
             verse2Avg = null;
-            if (finalSession.getNextLevel() != null || (finalSession.getVerse2Judgments() != null && !finalSession.getVerse2Judgments().isEmpty())) {
-                verse2Avg = calculateScoreFromJudgments(finalSession.getVerse2Judgments());
+            if (finalSession.getNextLevel() != null || !verse2Judgments.isEmpty()) {
+                verse2Avg = calculateScoreFromJudgments(verse2Judgments);
             }
+            finalLevel = finalSession.getNextLevel();
 
             // MongoDB 저장
-            GameDetail.Statistics verse1Stats = calculateStatistics(finalSession.getVerse1Judgments());
-            GameDetail.Statistics verse2Stats = calculateStatistics(finalSession.getVerse2Judgments());
+            GameDetail.Statistics verse1Stats = calculateStatistics(verse1Judgments);
+            GameDetail.Statistics verse2Stats = calculateStatistics(verse2Judgments);
             GameDetail gameDetail = GameDetail.builder().sessionId(sessionId).verse1Stats(verse1Stats).verse2Stats(verse2Stats).build();
             gameDetailRepository.save(gameDetail);
 
@@ -1211,24 +1238,152 @@ public class GameService {
             log.info("세션 {}의 Redis 데이터 삭제 완료.", sessionId);
         }
 
-        // --- ▼ (핵심 수정) 최종 응답을 생성하기 전에 actionCode 맵을 actionName 맵으로 변환 ---
+        // === 상세 통계 계산 ===
+
+        // 1. 전체 통계 계산
+        GameEndResponse.OverallStatistics overallStats = buildOverallStatistics(allJudgments);
+
+        // 2. 절별 통계 계산
+        GameEndResponse.VerseStatistics verse1StatsResponse = buildVerseStatistics(1, verse1Judgments);
+        GameEndResponse.VerseStatistics verse2StatsResponse = verse2Judgments.isEmpty() ? null : buildVerseStatistics(2, verse2Judgments);
+
+        // 3. 동작별 상세 통계 계산
+        List<GameEndResponse.ActionStatistics> actionStatsList = buildActionStatisticsList(allJudgments);
+
+        // 4. 기존 호환용 Map 변환
         Map<String, Double> scoresByActionName = avgScoresByActionCode.entrySet().stream()
                 .collect(Collectors.toMap(
-                        // entry의 key(actionCode)를 캐시에서 찾아 actionName으로 변환
                         entry -> actionCodeToNameMap.getOrDefault(entry.getKey(), "알 수 없는 동작 #" + entry.getKey()),
                         Map.Entry::getValue
                 ));
-        // --- ▲ ------------------------------------------------------------------------- ▲ ---
 
-        // 최종 점수와 메시지 계산하여 반환
+        // 최종 점수와 메시지 계산
         double finalScore = calculateFinalScore(verse1Avg, verse2Avg);
         String message = getResultMessage(finalScore);
 
         return GameEndResponse.builder()
                 .finalScore(finalScore)
                 .message(message)
-                .scoresByAction(scoresByActionName) // <-- 변환된 Map을 응답에 추가
+                .finalLevel(finalLevel)
+                .overallStats(overallStats)
+                .verse1Stats(verse1StatsResponse)
+                .verse2Stats(verse2StatsResponse)
+                .actionStatsList(actionStatsList)
+                .scoresByAction(scoresByActionName)
                 .build();
+    }
+
+    /**
+     * 전체 통계 빌드 헬퍼 메소드
+     */
+    private GameEndResponse.OverallStatistics buildOverallStatistics(List<GameSession.JudgmentResult> judgments) {
+        if (judgments == null || judgments.isEmpty()) {
+            return GameEndResponse.OverallStatistics.builder()
+                    .totalActions(0)
+                    .perfectCount(0)
+                    .goodCount(0)
+                    .badCount(0)
+                    .perfectRate(0.0)
+                    .goodRate(0.0)
+                    .badRate(0.0)
+                    .averageScore(0.0)
+                    .build();
+        }
+
+        int total = judgments.size();
+        int perfect = (int) judgments.stream().filter(j -> j.getJudgment() == 3).count();
+        int good = (int) judgments.stream().filter(j -> j.getJudgment() == 2).count();
+        int bad = (int) judgments.stream().filter(j -> j.getJudgment() == 1 || j.getJudgment() == 0).count();
+
+        return GameEndResponse.OverallStatistics.builder()
+                .totalActions(total)
+                .perfectCount(perfect)
+                .goodCount(good)
+                .badCount(bad)
+                .perfectRate(total > 0 ? (perfect * 100.0 / total) : 0.0)
+                .goodRate(total > 0 ? (good * 100.0 / total) : 0.0)
+                .badRate(total > 0 ? (bad * 100.0 / total) : 0.0)
+                .averageScore(calculateScoreFromJudgments(judgments))
+                .build();
+    }
+
+    /**
+     * 절별 통계 빌드 헬퍼 메소드
+     */
+    private GameEndResponse.VerseStatistics buildVerseStatistics(int verse, List<GameSession.JudgmentResult> judgments) {
+        if (judgments == null || judgments.isEmpty()) {
+            return GameEndResponse.VerseStatistics.builder()
+                    .verse(verse)
+                    .totalActions(0)
+                    .perfectCount(0)
+                    .goodCount(0)
+                    .badCount(0)
+                    .perfectRate(0.0)
+                    .goodRate(0.0)
+                    .badRate(0.0)
+                    .averageScore(0.0)
+                    .build();
+        }
+
+        int total = judgments.size();
+        int perfect = (int) judgments.stream().filter(j -> j.getJudgment() == 3).count();
+        int good = (int) judgments.stream().filter(j -> j.getJudgment() == 2).count();
+        int bad = (int) judgments.stream().filter(j -> j.getJudgment() == 1 || j.getJudgment() == 0).count();
+
+        return GameEndResponse.VerseStatistics.builder()
+                .verse(verse)
+                .totalActions(total)
+                .perfectCount(perfect)
+                .goodCount(good)
+                .badCount(bad)
+                .perfectRate(total > 0 ? (perfect * 100.0 / total) : 0.0)
+                .goodRate(total > 0 ? (good * 100.0 / total) : 0.0)
+                .badRate(total > 0 ? (bad * 100.0 / total) : 0.0)
+                .averageScore(calculateScoreFromJudgments(judgments))
+                .build();
+    }
+
+    /**
+     * 동작별 상세 통계 리스트 빌드 헬퍼 메소드
+     */
+    private List<GameEndResponse.ActionStatistics> buildActionStatisticsList(List<GameSession.JudgmentResult> allJudgments) {
+        if (allJudgments == null || allJudgments.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // actionCode별로 그룹핑
+        Map<Integer, List<GameSession.JudgmentResult>> groupedByAction = allJudgments.stream()
+                .collect(Collectors.groupingBy(GameSession.JudgmentResult::getActionCode));
+
+        return groupedByAction.entrySet().stream()
+                .map(entry -> {
+                    int actionCode = entry.getKey();
+                    List<GameSession.JudgmentResult> actionJudgments = entry.getValue();
+
+                    int total = actionJudgments.size();
+                    int perfect = (int) actionJudgments.stream().filter(j -> j.getJudgment() == 3).count();
+                    int good = (int) actionJudgments.stream().filter(j -> j.getJudgment() == 2).count();
+                    int bad = (int) actionJudgments.stream().filter(j -> j.getJudgment() == 1 || j.getJudgment() == 0).count();
+                    double avgScore = actionJudgments.stream()
+                            .mapToDouble(j -> (double) j.getJudgment() / 3.0 * 100.0)
+                            .average()
+                            .orElse(0.0);
+
+                    return GameEndResponse.ActionStatistics.builder()
+                            .actionCode(actionCode)
+                            .actionName(actionCodeToNameMap.getOrDefault(actionCode, "알 수 없는 동작 #" + actionCode))
+                            .totalCount(total)
+                            .perfectCount(perfect)
+                            .goodCount(good)
+                            .badCount(bad)
+                            .perfectRate(total > 0 ? (perfect * 100.0 / total) : 0.0)
+                            .goodRate(total > 0 ? (good * 100.0 / total) : 0.0)
+                            .badRate(total > 0 ? (bad * 100.0 / total) : 0.0)
+                            .averageScore(avgScore)
+                            .build();
+                })
+                .sorted(Comparator.comparingInt(GameEndResponse.ActionStatistics::getActionCode))
+                .collect(Collectors.toList());
     }
 
     /**
