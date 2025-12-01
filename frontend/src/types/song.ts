@@ -15,3 +15,10 @@ export type Song = {
   title: string;
   artist: string;
 };
+
+export type SongList = {
+  songId: number;
+  title: string;
+  artist: string;
+  playCount: number;
+}

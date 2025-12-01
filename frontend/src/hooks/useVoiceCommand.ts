@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { sendVoiceCommand } from '@/api/voiceCommandApi';
 import type { VoiceCommandResponse } from '@/types/voiceCommand';
 import { useAudioStore } from '@/store/audioStore';
+import { useModeStore } from '@/store/modeStore';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
@@ -31,6 +32,7 @@ export const useVoiceCommand = (
   const navigate = useNavigate();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { pause: pauseAudio, play: playAudio } = useAudioStore();
+  const { setMode } = useModeStore.getState();
 
   // TTS 재생 함수
   const playTTS = useCallback((ttsUrl: string | null, onComplete?: () => void) => {
@@ -140,7 +142,8 @@ export const useVoiceCommand = (
         break;
 
       case 'MODE_EXERCISE_NO_SONG':
-        console.log('노래 목록으로 이동');
+        console.log('노래 목록으로 이동(체조)');
+        setMode('EXERCISE');
         navigate('/list');
         break;
 
@@ -183,6 +186,22 @@ export const useVoiceCommand = (
         break;
     }
   }, [pauseAudio, playAudio, navigate]);
+
+  // 녹음 / 응답 관련 상태 초기화 함수
+  const clearAudioBlob = useCallback(() => {
+    // TTS 재생 중인 오디오 정리
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    // 음성 명령 응답 관련 상태 초기화
+    setResponse(null);
+    setResponseText(null);
+    setError(null);
+    setIsUploading(false);
+    setIsPlaying(false);
+  }, []);
 
   // 음성 명령 전송
   const sendCommand = useCallback(async (audioBlob: Blob) => {
@@ -242,5 +261,6 @@ export const useVoiceCommand = (
     response,
     responseText,
     sendCommand,
+    clearAudioBlob,
   };
 };
