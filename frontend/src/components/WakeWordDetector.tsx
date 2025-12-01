@@ -1,52 +1,32 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { usePorcupine } from "@picovoice/porcupine-react";
 
+// 인터페이스 변경: 이제 isVoiceActive와 porcupineHook prop만 받습니다.
 interface WakeWordDetectorProps {
-  onDetection: () => void;
+  porcupineHook: ReturnType<typeof usePorcupine>; // 부모의 훅 인스턴스를 직접 받음
+  isVoiceActive: boolean;
 }
 
-const VITE_ACCESS_KEY = import.meta.env.VITE_PICOVOICE_ACCESS_KEY;
-const BASE_URL = import.meta.env.BASE_URL;
-
-const WakeWordDetector: React.FC<WakeWordDetectorProps> = ({ onDetection }) => {
-  const { keywordDetection, isLoaded, isListening, error, init, start, release } = usePorcupine();
-  const detectionTimeoutRef = useRef<number | null>(null);
+const WakeWordDetector: React.FC<WakeWordDetectorProps> = ({ porcupineHook, isVoiceActive }) => {
+  // 부모로부터 받은 훅의 상태와 함수를 사용합니다.
+  const { isLoaded, isListening, start, stop } = porcupineHook;
 
   useEffect(() => {
-    init(VITE_ACCESS_KEY, { publicPath: `${BASE_URL}WakeWord/흥민아_ko_wasm_v3_0_0.ppn`, label: "흥민아" }, { publicPath: `${BASE_URL}WakeWord/porcupine_params_ko.pv` });
-    return () => {
-      release();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (isLoaded && !isListening) {
-      start();
+    if (isLoaded) {
+      // 음성 시스템이 바쁘고(true), 현재 듣고 있다면 -> 감지를 중지합니다.
+      if (isVoiceActive && isListening) {
+        console.log("[WakeWord] Voice system is busy. Stopping listener.");
+        stop();
+      }
+      // 음성 시스템이 한가하고(false), 현재 듣고 있지 않다면 -> 감지를 시작합니다.
+      else if (!isVoiceActive && !isListening) {
+        console.log("[WakeWord] Voice system is idle. Starting listener.");
+        start();
+      }
     }
-  }, [isLoaded, isListening, start]);
+  }, [isLoaded, isListening, isVoiceActive, start, stop]);
 
-  useEffect(() => {
-    if (keywordDetection !== null) {
-      // 중복 호출을 막기 위해 짧은 시간 내의 호출은 무시
-      if (detectionTimeoutRef.current) return;
-
-      console.log(`✅ [WakeWord] 3. "${keywordDetection.label}" 감지 성공!!!`);
-      onDetection();
-
-      // 1초 동안 추가 감지를 막습니다.
-      detectionTimeoutRef.current = setTimeout(() => {
-        detectionTimeoutRef.current = null;
-      }, 1000);
-    }
-  }, [keywordDetection, onDetection]);
-
-  useEffect(() => {
-    if (error) {
-      console.error("❌ [WakeWord] 4. 에러 발생:", error);
-    }
-  }, [error]);
-
+  // 이 컴포넌트는 UI나 다른 로직 없이 오직 start/stop 제어만 담당합니다.
   return null;
 };
 
