@@ -9,6 +9,7 @@ let poseInstance: Pose | null = null;
 let cameraInstance: Camera | null = null;
 let onResultsCallback: PoseCallback | null = null;
 let isDetectionActive = false; // Pose 감지 활성화 여부
+let isPoseReady = false; // Pose 인스턴스가 사용 가능한 상태인지
 let lastSendTime = 0; // FPS 제한용
 
 /**
@@ -32,6 +33,7 @@ export const initializePose = async (): Promise<Pose> => {
   poseInstance.onResults(handleResults);
 
   await poseInstance.initialize();
+  isPoseReady = true;
   console.log('✅ MediaPipe Pose 초기화 완료');
 
   return poseInstance;
@@ -89,7 +91,8 @@ export const startCamera = async (
 
   cameraInstance = new Camera(videoElement, {
     onFrame: async () => {
-      if (poseInstance && videoElement.readyState >= 2) {
+      // isPoseReady 체크: close() 이후에는 프레임을 보내지 않음
+      if (isPoseReady && poseInstance && videoElement.readyState >= 2) {
         await poseInstance.send({ image: videoElement });
       }
     },
@@ -132,9 +135,16 @@ export const stopCamera = (): void => {
 
 /**
  * 리소스 정리
+ * 순서: isPoseReady off → 카메라 중지 → pose close
  */
 export const cleanupPose = (): void => {
+  // 1. 플래그를 먼저 끔 → onFrame에서 send() 호출 방지
+  isPoseReady = false;
+
+  // 2. 카메라 중지 (프레임 전송 완전 중단)
   stopCamera();
+
+  // 3. pose 인스턴스 정리
   if (poseInstance) {
     poseInstance.close();
     poseInstance = null;
