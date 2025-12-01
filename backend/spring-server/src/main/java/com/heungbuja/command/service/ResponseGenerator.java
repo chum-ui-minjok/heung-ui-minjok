@@ -75,4 +75,11 @@ public class ResponseGenerator {
     public String errorMessage() {
         return "죄송합니다. 처리 중 문제가 발생했어요";
     }
+
+    /**
+     * 게임 시작 메시지 (노래 정보 포함)
+     */
+    public String gameStartMessage(String artist, String title) {
+        return String.format("%s의 %s 노래로 체조를 시작할게요", artist, title);
+    }
 }
