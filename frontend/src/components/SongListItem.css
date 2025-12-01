@@ -21,10 +21,10 @@
   justify-content: space-between;
   align-items: center;
   /* gap: 30px; */
-  padding: 18px 50px;
+  padding: 15px 70px;
   border-radius: 999px;
   background: var(--color-bg);
-  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 12px 18px rgba(0, 0, 0, 0.1);
 }
 
 .song-item__title {
@@ -35,6 +35,14 @@
 
 .song-item__artist {
   font-size: 2rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #666;
 }
+
+.song-item__playCnt {
+  margin-left: 30px;
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: #666;
+}
+

@@ -1,9 +1,8 @@
-// components/SongListItem.tsx
 import type { Song } from '@/types/song';
 import './SongListItem.css';
 
 interface Props {
-  song: Song;
+  song: Song & { rank: number };
 }
 
 function SongListItem({ song }: Props) {
@@ -13,7 +12,10 @@ function SongListItem({ song }: Props) {
 
       <div className="song-item__card">
         <span className="song-item__title">{song.title}</span>
-        <span className="song-item__artist">{song.artist}</span>
+        <div>
+          <span className="song-item__artist">{song.artist}</span>
+          <span className="song-item__playCnt">{song.playCount} 회</span>
+        </div>
       </div>
     </div>
   );

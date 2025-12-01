@@ -1,32 +1,31 @@
 import { useEffect, useState } from 'react';
 import SongListItem from '@/components/SongListItem';
-import type { Song } from '@/types/song';
+import type { RankedSong } from '@/types/song';
 import { useModeStore } from '@/store/modeStore';
 import { getMusicSongList, getGameSongList } from '@/api/list';
 import './SongListPage.css';
 
 function SongListPage() {
   const { mode } = useModeStore();
-  const [songs, setSongs] = useState<Song[]>([]);
+  const [songs, setSongs] = useState<RankedSong[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchSongs() {
       setLoading(true);
       try {
-        const data =
+        const baseSongs =
           mode === 'LISTENING'
             ? await getMusicSongList()
             : await getGameSongList();
 
-        const mapped: Song[] = data.map((item, index) => ({
-          id: item.songId,
+        // 순위 부여
+        const withRank: RankedSong[] = baseSongs.map((song, index) => ({
+          ...song,
           rank: index + 1,
-          title: item.title,
-          artist: item.artist,
         }));
 
-        setSongs(mapped);
+        setSongs(withRank);
       } catch (e) {
         console.error('노래 목록 조회 실패:', e);
         setSongs([]);
