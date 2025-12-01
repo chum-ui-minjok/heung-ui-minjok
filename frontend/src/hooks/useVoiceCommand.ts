@@ -14,7 +14,6 @@ interface UseVoiceCommandReturn {
   response: VoiceCommandResponse | null;
   responseText: string | null;
   sendCommand: (audioBlob: Blob) => Promise<void>;
-  clearAudioBlob: () => void;
 }
 
 interface UseVoiceCommandOptions {

@@ -89,11 +89,12 @@ ai:
   server:
     base-url: https://heungbuja.site/motion
 
-# 게임 데이터 로컬 저장 설정 (모델 학습용)
+# 게임 데이터 저장 설정 (모델 학습용)
 game:
   data:
-    save-enabled: false  # true로 변경하면 로컬에 이미지 저장
+    save-enabled: false  # true: 로컬 파일에 저장 (개발용)
     save-path: ${GAME_DATA_SAVE_PATH:../motion-server/app/brandnewTrain/game_data}
+    save-to-db: true     # true: MongoDB에 저장 (실제 서버용 - 팀원들 학습 데이터 수집)
 
 # SuperAdmin 초기 계정 설정
 superadmin:

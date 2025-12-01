@@ -147,6 +147,7 @@ public class CommandServiceImpl implements CommandService {
             // 모드 관련 (프론트가 관리하므로 TTS 응답만)
             case MODE_HOME -> handleModeChange(user, Intent.MODE_HOME, PlaybackMode.HOME);
             case MODE_LISTENING -> handleModeChange(user, Intent.MODE_LISTENING, PlaybackMode.LISTENING);
+            case MODE_LISTENING_NO_SONG -> handleMusicListScreen(user);
             case MODE_EXERCISE -> handleSimpleResponse(user, Intent.MODE_EXERCISE);
             case MODE_EXERCISE_NO_SONG -> handleGameListScreen(user);
             case MODE_EXERCISE_END -> handleGameEnd(user);
@@ -325,6 +326,37 @@ public class CommandServiceImpl implements CommandService {
         String ttsUrl = ttsService.synthesize(responseText);
 
         return CommandResponse.success(intent, responseText, "/commands/tts/" + ttsUrl);
+    }
+
+    /**
+     * 음악 목록 화면 처리 (노래 없이 감상 시작)
+     */
+    private CommandResponse handleMusicListScreen(User user) {
+        log.info("음악 목록 화면 이동 요청: userId={}", user.getId());
+
+        // 1. 음악/게임 진행 중이면 중단
+        handleActivityInterrupt(user.getId(), "음악 목록");
+
+        // 2. ConversationContext 모드 변경
+        conversationContextService.changeMode(user.getId(), PlaybackMode.LISTENING);
+
+        // 3. 응답 생성
+        String responseText = "노래 목록을 보여드릴게요";
+
+        CommandResponse.ScreenTransition screenTransition = CommandResponse.ScreenTransition.builder()
+                .targetScreen("/music/list")
+                .action("SHOW_MUSIC_LIST")
+                .data(Map.of())
+                .build();
+
+        return CommandResponse.builder()
+                .success(true)
+                .intent(Intent.MODE_LISTENING_NO_SONG)
+                .responseText(responseText)
+                .ttsAudioUrl(null)
+                .songInfo(null)
+                .screenTransition(screenTransition)
+                .build();
     }
 
     /**
