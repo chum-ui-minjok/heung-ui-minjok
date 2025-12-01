@@ -12,11 +12,15 @@ export const gameStartApi = () => {
   // return api.post<GameStartResponse>('/game/start', { songId }, true);
 }
 
-export const gameEndApi = () => {
+export const gameEndApi = (): Promise<GameEndResponse> => {
   const { sessionId } = useGameStore.getState();
 
   if (!sessionId) {
-    throw new Error('세션 ID가 없습니다. 게임 시작 정보가 제대로 설정되지 않았습니다.');
+    console.warn('세션 ID가 없습니다. gameEndApi 호출 스킵.');
+    return Promise.resolve({
+      finalScore: 0,
+      message: '',
+    });
   }
 
   const path = `/game/end?sessionId=${encodeURIComponent(sessionId)}`;

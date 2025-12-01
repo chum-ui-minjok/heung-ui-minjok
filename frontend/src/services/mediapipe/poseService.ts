@@ -16,7 +16,10 @@ let lastSendTime = 0; // FPS 제한용
  * MediaPipe Pose 초기화
  */
 export const initializePose = async (): Promise<Pose> => {
-  if (poseInstance) return poseInstance;
+  if (poseInstance) {
+    isPoseReady = true;  // 이미 초기화된 경우에도 플래그 복원
+    return poseInstance;
+  }
 
   poseInstance = new Pose({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
@@ -135,7 +138,9 @@ export const stopCamera = (): void => {
 
 /**
  * 리소스 정리
- * 순서: isPoseReady off → 카메라 중지 → pose close
+ * 순서: isPoseReady off → 카메라 중지
+ * 참고: poseInstance.close()는 호출하지 않음 (WASM 모듈 재초기화 문제 방지)
+ *       페이지 완전 이탈 시 브라우저가 자동 정리함
  */
 export const cleanupPose = (): void => {
   // 1. 플래그를 먼저 끔 → onFrame에서 send() 호출 방지
@@ -144,10 +149,6 @@ export const cleanupPose = (): void => {
   // 2. 카메라 중지 (프레임 전송 완전 중단)
   stopCamera();
 
-  // 3. pose 인스턴스 정리
-  if (poseInstance) {
-    poseInstance.close();
-    poseInstance = null;
-  }
+  // poseInstance는 유지 (close() 호출 시 WASM 재초기화 불가)
   console.log('🧹 MediaPipe Pose 리소스 정리 완료');
 };
