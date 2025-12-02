@@ -21,7 +21,7 @@
 ## 🚀 주요 기능
 
 <p align="left">
-  <img src="./imgs/services.png" width="100%">
+  <img src="./imgs/services.png" width="60%">
 </p>
 
 ### 1. 음성 명령을 통한 주요 기능 제어
