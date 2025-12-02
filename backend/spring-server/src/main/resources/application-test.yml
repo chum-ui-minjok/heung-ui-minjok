@@ -42,3 +42,23 @@ logging:
 # 테스트를 위해 임시로 모든 API 경로 허용
 security:
   permit-all-paths: /api/**
+
+# 게임 데이터 저장 (테스트 환경)
+game:
+  data:
+    save-enabled: true   # 로컬 파일 저장 (테스트용)
+    save-path: ../motion-server/app/brandnewTrain/game_data_mediapipe
+    save-to-db: false    # MongoDB 저장 비활성화 (로컬 테스트)
+
+# AI 서버 (로컬)
+ai:
+  server:
+    base-url: http://localhost:8000
+
+# OpenAI API 직접 연결 (GMS 대신)
+openai:
+  api-key: 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
+  stt:
+    url: https://api.openai.com/v1/audio/transcriptions
+  tts:
+    url: https://api.openai.com/v1/audio/speech

@@ -38,7 +38,9 @@ public class ResponseGenerator {
             // 모드 관련 (단순화)
             case MODE_HOME -> "홈 화면으로 돌아갈게요";
             case MODE_LISTENING -> "어떤 노래를 들려드릴까요?";
+            case MODE_LISTENING_NO_SONG -> "노래 목록을 보여드릴게요";
             case MODE_EXERCISE -> "체조를 시작할게요. 함께 운동해봐요!";
+            case MODE_EXERCISE_NO_SONG -> "게임 목록을 보여드릴게요";
             case MODE_EXERCISE_END -> "수고하셨어요! 체조를 종료할게요";
 
             // 응급 상황
@@ -72,5 +74,12 @@ public class ResponseGenerator {
      */
     public String errorMessage() {
         return "죄송합니다. 처리 중 문제가 발생했어요";
+    }
+
+    /**
+     * 게임 시작 메시지 (노래 정보 포함)
+     */
+    public String gameStartMessage(String artist, String title) {
+        return String.format("%s의 %s 노래로 체조를 시작할게요", artist, title);
     }
 }

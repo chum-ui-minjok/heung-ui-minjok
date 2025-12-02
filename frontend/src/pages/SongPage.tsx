@@ -1,41 +1,31 @@
-import type { SongInfo } from '@/types/song';
-import './SongPage.css';
-import VoiceButton from '@/components/VoiceButton';
 import { useRef, useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { SongInfo } from '@/types/song';
 import { useAudioStore } from '@/store/audioStore';
+import './SongPage.css';
 
 interface SongPageState {
   songInfo: SongInfo;
   autoPlay?: boolean;
 }
 
-// 테스트용 더미 데이터 (컴포넌트 외부로 이동)
-const BASE_URL = import.meta.env.BASE_URL;
-const dummySongInfo: SongInfo = {
-  songId: 1,
-  title: '테스트 노래 - 당돌한 여자',
-  artist: '테스트 가수 - 서주경',
-  mediaId: 100,
-  audioUrl: `${BASE_URL}당돌한여자.mp3`,
-  mode: 'LISTENING'
-};
-
-
-
 function SongPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const state = location.state as SongPageState | null;
-
-  // 전달받은 songInfo 또는 더미 데이터 사용
-  const songInfo = state?.songInfo || dummySongInfo;
-  const autoPlay = state?.autoPlay || false;
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const { setAudioRef, setIsPlaying: setGlobalPlaying } = useAudioStore();
 
-  // audioRef를 store에 등록
+  // songInfo가 없으면 홈으로 리다이렉트
+  useEffect(() => {
+    if (!state?.songInfo) {
+      navigate('/home', { replace: true });
+    }
+  }, [state, navigate]);
+
+  // audioRef를 전역 store에 등록
   useEffect(() => {
     if (audioRef.current) {
       setAudioRef(audioRef.current);
@@ -45,25 +35,29 @@ function SongPage() {
     };
   }, [setAudioRef]);
 
-  // isPlaying 상태를 store와 동기화
+  // 로컬 isPlaying ↔ 전역 isPlaying 동기화
   useEffect(() => {
     setGlobalPlaying(isPlaying);
   }, [isPlaying, setGlobalPlaying]);
 
+  // 리다이렉트 중에는 화면 렌더링하지 않음
+  if (!state?.songInfo) {
+    return null;
+  }
+
+  const { songInfo, autoPlay = false } = state;
+
   return (
     <div className="container">
-      {/* 블러 그라디언트 배경 */}
-      <span className='song-title'>{songInfo.title}</span>
-      <span className='song-artist'>{songInfo.artist}</span>
+      <span className="song-title">{songInfo.title}</span>
+      <span className="song-artist">{songInfo.artist}</span>
 
-      {/* LP판 턴테이블 */}
       <div className={`lp-container ${isPlaying ? 'playing' : 'stopped'}`}>
         <div className="lp-disc"></div>
         <div className="tonearm-base"></div>
         <div className="tonearm"></div>
       </div>
 
-      {/* 오디오 플레이어 */}
       <audio
         ref={audioRef}
         src={songInfo.audioUrl}
@@ -72,8 +66,6 @@ function SongPage() {
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
       />
-
-      <VoiceButton/>
     </div>
   );
 }

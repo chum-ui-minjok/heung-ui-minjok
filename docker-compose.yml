@@ -120,13 +120,13 @@ services:
     restart: unless-stopped
     networks: [app-net]
 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1          # GPU 1�??�용 (?�러 개면 all ?�는 ?�자 변�?
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1          # GPU 1�??�용 (?�러 개면 all ?�는 ?�자 변�?
+    #           capabilities: [gpu]
 
   music:
     container_name: music-server
@@ -146,13 +146,13 @@ services:
     restart: unless-stopped
     networks: [app-net]
 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
 
   admin:
     container_name: heungbuja-admin

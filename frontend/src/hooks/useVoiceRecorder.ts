@@ -7,6 +7,7 @@ interface UseVoiceRecorderReturn {
   error: string | null;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
+  clearAudioBlob: () => void;
 }
 
 export const useVoiceRecorder = (): UseVoiceRecorderReturn => {
@@ -18,6 +19,10 @@ export const useVoiceRecorder = (): UseVoiceRecorderReturn => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clearAudioBlob = useCallback(() => {
+    setAudioBlob(null);
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
@@ -114,5 +119,6 @@ export const useVoiceRecorder = (): UseVoiceRecorderReturn => {
     error,
     startRecording,
     stopRecording,
+    clearAudioBlob, 
   };
 };

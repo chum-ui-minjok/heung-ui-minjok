@@ -3,6 +3,7 @@ package com.heungbuja.game.controller;
 import com.heungbuja.common.exception.CustomException;
 import com.heungbuja.common.exception.ErrorCode;
 import com.heungbuja.game.dto.GameEndResponse;
+import com.heungbuja.game.dto.GameSongListResponse;
 import com.heungbuja.game.state.GameSession;
 import com.heungbuja.session.service.SessionStateService;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -84,6 +87,16 @@ public class GameController {
         } else {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("이미 다른 인터럽트가 처리 중입니다.");
         }
+    }
+
+    /**
+     * 게임 가능한 노래 목록 조회 API (최대 5곡)
+     * @return 게임 가능한 노래 목록
+     */
+    @GetMapping("/list")
+    public ResponseEntity<List<GameSongListResponse>> getGameSongList() {
+        List<GameSongListResponse> songList = gameService.getAvailableGameSongs(5);
+        return ResponseEntity.ok(songList);
     }
 
     // --- ▼ (테스트용 코드) AI 서버 연동을 테스트하기 위한 임시 API 엔드포인트 ---

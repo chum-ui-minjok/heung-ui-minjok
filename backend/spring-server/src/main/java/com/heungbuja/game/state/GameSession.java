@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.time.Instant;
 
 /**
@@ -24,11 +25,18 @@ public class GameSession implements Serializable {
     private Long userId;
     private Long songId;
 
-    /** 1절의 각 동작별 판정 결과(1, 2, 3)를 저장하는 리스트 */
-    private List<Integer> verse1Judgments;
+    // --- 판정 결과를 담을 내부 클래스 정의 ---
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JudgmentResult implements Serializable {
+        private int actionCode;
+        private int judgment;
+    }
 
-    /** 2절의 각 동작별 판정 결과(1, 2, 3)를 저장하는 리스트 */
-    private List<Integer> verse2Judgments;
+    // --- ▼ (핵심 수정) 점수 리스트의 타입을 JudgmentResult로 변경 ---
+    private List<JudgmentResult> verse1Judgments;
+    private List<JudgmentResult> verse2Judgments;
 
     /** 1절 종료 후 결정된 2절의 안무 레벨 */
     private Integer nextLevel;
@@ -36,8 +44,11 @@ public class GameSession implements Serializable {
     /** 현재 판정해야 할 다음 동작의 인덱스 (actionTimeline의 인덱스) */
     private int nextActionIndex;
 
-    /** 현재 판정 중인 동작의 프레임들을 임시로 모아두는 버퍼 */
+    /** 현재 판정 중인 동작의 프레임들을 임시로 모아두는 버퍼 (Base64 이미지용) */
     private Map<Double, String> frameBuffer;
+
+    /** 현재 판정 중인 동작의 Pose 좌표를 임시로 모아두는 버퍼 (MediaPipe 좌표용) */
+    private Map<Double, List<List<Double>>> poseBuffer;
 
     /** 마지막으로 프레임을 수신한 시간 (epoch milliseconds) */
     private long lastFrameReceivedTime;
@@ -67,7 +78,8 @@ public class GameSession implements Serializable {
                 .verse1Judgments(new ArrayList<>())
                 .verse2Judgments(new ArrayList<>())
                 .nextActionIndex(0)
-                .frameBuffer(new HashMap<>())
+                .frameBuffer(new TreeMap<>())
+                .poseBuffer(new TreeMap<>())
                 .lastFrameReceivedTime(0L)
                 .judgmentCount(0) // <-- 빌더에 초기값 설정 추가
                 .build();

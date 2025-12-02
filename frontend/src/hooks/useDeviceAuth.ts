@@ -20,7 +20,7 @@ export const useDeviceAuth = () => {
         await new Promise(resolve => setTimeout(resolve, 500));
         localStorage.setItem('userAccessToken', 'mock-user-token-12345');
         localStorage.setItem('userId','1');
-        navigate('/voice');
+        navigate('/home');
       } else {
         const response = await deviceLoginApi(credentials);
 

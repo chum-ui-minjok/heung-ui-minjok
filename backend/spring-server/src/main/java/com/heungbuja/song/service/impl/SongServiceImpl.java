@@ -149,25 +149,42 @@ public class SongServiceImpl implements SongService {
     public Song searchByArtistAndTitle(String artist, String title) {
         log.info("🔍 가수+제목 검색: artist='{}', title='{}'", artist, title);
 
-        // [1단계] FULLTEXT 검색 (조합)
-        String query = artist + " " + title;
-        List<Song> results = songRepository.fullTextSearch(query, 10);
-        if (!results.isEmpty()) {
-            log.info("✅ [FULLTEXT 조합] {} 곡 발견", results.size());
-            return selectBest(results);
-        }
-
-        // [2단계] Redis 캐시에서 정확 매칭
+        // [1단계] Redis 캐시에서 가수+제목 정확 매칭 (가장 정확)
         List<Song> allSongs = redisCacheService.getAllSongs();
-        results = allSongs.stream()
+        List<Song> results = allSongs.stream()
             .filter(song ->
                 containsIgnoreCase(song.getArtist(), artist) &&
                 containsIgnoreCase(song.getTitle(), title))
             .toList();
 
         if (!results.isEmpty()) {
-            log.info("✅ [Redis 정확 매칭] {} 곡 발견", results.size());
+            log.info("✅ [Redis 가수+제목 정확 매칭] {} 곡 발견", results.size());
             return selectBest(results);
+        }
+
+        // [2단계] FULLTEXT 검색 후 제목 필터링
+        String query = artist + " " + title;
+        results = songRepository.fullTextSearch(query, 10);
+        if (!results.isEmpty()) {
+            // FULLTEXT 결과에서 제목이 실제로 포함된 곡만 필터링
+            List<Song> filtered = results.stream()
+                .filter(song -> containsIgnoreCase(song.getTitle(), title))
+                .toList();
+
+            if (!filtered.isEmpty()) {
+                log.info("✅ [FULLTEXT + 제목 필터] {} 곡 발견", filtered.size());
+                return selectBest(filtered);
+            }
+
+            // 제목 필터링 실패 시, 가수라도 맞는 곡 반환
+            filtered = results.stream()
+                .filter(song -> containsIgnoreCase(song.getArtist(), artist))
+                .toList();
+
+            if (!filtered.isEmpty()) {
+                log.info("⚠️ [FULLTEXT + 가수 필터] 제목 불일치, 가수만 매칭된 {} 곡 중 선택", filtered.size());
+                return selectBest(filtered);
+            }
         }
 
         // [3단계] DB LIKE 검색

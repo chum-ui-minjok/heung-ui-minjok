@@ -2,10 +2,10 @@ import { type GameConfig  } from '@/types';
 
 // ===== 체조 설정 상수 =====
 export const GAME_CONFIG: GameConfig = {
-  FPS: 30,
-  FRAME_MS: 1000 / 30,
+  FPS: 30,              // 초당 30프레임
+  FRAME_MS: 1000 / 30,  // 약 33.33ms 간격
   EPS: 0.03,            // 타이밍 오차 허용 (30ms)
-  LATE_GUARD: 0.08,     // 늦은 시작 방지 
+  LATE_GUARD: 0.08,     // 늦은 시작 방지
   MAX_RETRIES: 3,       // 최대 재시도 횟수
   BARS_PER_SEGMENT: 4,  // 세그먼트당 마디 수
   SEGMENT_COUNT: 6,     // 총 세그먼트 수

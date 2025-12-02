@@ -32,7 +32,7 @@ public class GameState implements Serializable {
 
     // 동작 타임라인
     private List<ActionTimelineEvent> verse1Timeline;
-    private GameStartResponse.Verse2Timeline verse2Timeline;
+    private GameStartResponse.Verse2Timeline verse2Timelines;
 
     // 섹션별 패턴 시퀀스 (eachRepeat 적용된 실제 반복 순서)
     private GameStartResponse.SectionPatterns sectionPatterns;

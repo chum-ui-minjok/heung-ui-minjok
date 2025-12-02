@@ -197,10 +197,10 @@ public class SongGameDataCache {
         int startBeat = section.getStartBeat();
         int endBeat = section.getEndBeat();
 
-        // ⭐ 1. 패턴 배열을 하나의 큰 패턴으로 병합
+        // ⭐ 1. 패턴 배열을 하나의 큰 패턴으로 병합 (패턴 전체를 eachRepeat번 반복)
         List<Integer> mergedPattern = new ArrayList<>();
-        for (List<Integer> pattern : patternSequenceList) {
-            for (int i = 0; i < eachRepeat; i++) {
+        for (int i = 0; i < eachRepeat; i++) {
+            for (List<Integer> pattern : patternSequenceList) {
                 mergedPattern.addAll(pattern);
             }
         }
@@ -312,10 +312,10 @@ public class SongGameDataCache {
             int eachRepeat,
             String sectionLabel) {
 
-        // 1. 기본 패턴 시퀀스 생성 (eachRepeat 적용)
+        // 1. 기본 패턴 시퀀스 생성 (패턴 전체를 eachRepeat번 반복)
         List<String> mergedPattern = new ArrayList<>();
-        for (String patternId : patternSequence) {
-            for (int i = 0; i < eachRepeat; i++) {
+        for (int i = 0; i < eachRepeat; i++) {
+            for (String patternId : patternSequence) {
                 mergedPattern.add(patternId);
             }
         }
@@ -355,21 +355,22 @@ public class SongGameDataCache {
         Map<String, Double> sectionStartTimes = songBeat.getSections().stream()
                 .collect(Collectors.toMap(
                         SongBeat.Section::getLabel,
-                        s -> barStartTimes.getOrDefault(s.getStartBar(), 0.0)
+                        s -> beatNumToTimeMap.getOrDefault(s.getStartBeat(), 0.0)
                 ));
 
         SongBeat.Section verse1Section = findSectionByLabel(songBeat, "verse1");
         SongBeat.Section verse2Section = findSectionByLabel(songBeat, "verse2");
 
         int verse1CamStartBeat = verse1Section.getStartBeat() + 32;
-        int verse1CamEndBeat = verse1CamStartBeat + (16 * 6);
+        int verse1CamEndBeat = Math.min(verse1CamStartBeat + (16 * 6), verse1Section.getEndBeat() - 8);
         SectionInfo.VerseInfo verse1CamInfo = SectionInfo.VerseInfo.builder()
                 .startTime(beatNumToTimeMap.getOrDefault(verse1CamStartBeat, 0.0))
                 .endTime(beatNumToTimeMap.getOrDefault(verse1CamEndBeat, 0.0))
                 .build();
 
+        // verse2는 끝나는 지점에서 16박자 전까지
         int verse2CamStartBeat = verse2Section.getStartBeat() + 32;
-        int verse2CamEndBeat = verse2CamStartBeat + (16 * 6);
+        int verse2CamEndBeat = verse2Section.getEndBeat() - 16;
         SectionInfo.VerseInfo verse2CamInfo = SectionInfo.VerseInfo.builder()
                 .startTime(beatNumToTimeMap.getOrDefault(verse2CamStartBeat, 0.0))
                 .endTime(beatNumToTimeMap.getOrDefault(verse2CamEndBeat, 0.0))
