@@ -152,7 +152,6 @@
 | **Backend**      | `Spring Boot`, `Java 17`, `Spring Security`, `JWT`, `JPA`                                |
 | **AI / VUI**         | `Python`, `OpenCV`, `MediaPipe`, `Picovoice`, `GPT`                   |
 | **Database**        | `MySQL`, `Redis`, `Mongo DB`                                                                  |
-| **Embedded / IoT**  | `Raspberry Pi 4`          |
 | **Infra**           | `AWS`, `Docker`, `Nginx`                                                   |
 
 <br>
