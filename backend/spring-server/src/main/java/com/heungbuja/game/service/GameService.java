@@ -521,23 +521,27 @@ public class GameService {
     private GameStartResponse.SegmentRange createSegmentRange(SongBeat songBeat, String verseLabel, Map<Integer, Double> beatNumToTimeMap) {
         SongBeat.Section verseSection = findSectionByLabel(songBeat, verseLabel);
         int camStartBeat = verseSection.getStartBeat() + 32;
-        int camEndBeat = camStartBeat + (16 * 6);
+        // verse2는 짧게 끊어서 계산 편하게 (48비트 = 12마디)
+        int camEndBeat = "verse2".equals(verseLabel)
+                ? camStartBeat + 48
+                : camStartBeat + (16 * 6);
 
-        // camEndBeat가 섹션 범위를 초과하면 섹션의 endBeat로 제한
-        if (camEndBeat > verseSection.getEndBeat()) {
-            camEndBeat = verseSection.getEndBeat();
-            log.debug("{}의 camEndBeat가 섹션 범위를 초과하여 {}로 조정", verseLabel, camEndBeat);
+        // camEndBeat가 섹션 범위를 초과하면 섹션의 endBeat - 8로 제한 (여유 두기)
+        int maxAllowedBeat = verseSection.getEndBeat() - 8;
+        if (camEndBeat > maxAllowedBeat) {
+            camEndBeat = maxAllowedBeat;
+            log.debug("{}의 camEndBeat를 {}로 조정 (섹션 끝 전 여유)", verseLabel, camEndBeat);
         }
 
         double startTime = beatNumToTimeMap.getOrDefault(camStartBeat, 0.0);
         double endTime = beatNumToTimeMap.getOrDefault(camEndBeat, 0.0);
 
-        // endTime이 0이면 beatNumToTimeMap에 해당 beat가 없는 것 → 마지막 beat 시간 사용
+        // endTime이 0이면 beatNumToTimeMap에 해당 beat가 없는 것
         if (endTime == 0.0 && !beatNumToTimeMap.isEmpty()) {
             int maxBeat = beatNumToTimeMap.keySet().stream().max(Integer::compareTo).orElse(0);
-            endTime = beatNumToTimeMap.getOrDefault(maxBeat, 0.0);
-            log.warn("{}의 camEndBeat({})가 beatMap에 없어서 maxBeat({})의 시간({})을 사용",
-                    verseLabel, camEndBeat, maxBeat, endTime);
+            endTime = beatNumToTimeMap.getOrDefault(Math.min(camEndBeat, maxBeat), 0.0);
+            log.warn("{}의 camEndBeat({})가 beatMap에 없어서 {}의 시간({})을 사용",
+                    verseLabel, camEndBeat, Math.min(camEndBeat, maxBeat), endTime);
         }
 
         return GameStartResponse.SegmentRange.builder()
