@@ -19,11 +19,7 @@ import {
   deviceRegisterNavItem,
   userRegisterNavItem,
 } from "../config/navigation";
-import {
-  useUserStore,
-  useNotificationStore,
-  useDeviceStore,
-} from "../stores";
+import { useUserStore, useNotificationStore, useDeviceStore } from "../stores";
 import { getUsers } from "../api/user";
 import { mockUsers, mockDevices } from "../mocks/mockData";
 import "../styles/dashboard.css";
@@ -105,11 +101,7 @@ const UserManagementPage = () => {
   };
 
   const navigationItems = useMemo(
-    () => [
-      ...adminBaseNavItems,
-      deviceRegisterNavItem,
-      userRegisterNavItem,
-    ],
+    () => [...adminBaseNavItems, deviceRegisterNavItem, userRegisterNavItem],
     []
   );
 
@@ -179,7 +171,8 @@ const UserManagementPage = () => {
         } else if (searchField === "name") {
           matches = user.name.toLowerCase().includes(query);
         } else if (searchField === "deviceSerialNumber") {
-          matches = user.deviceSerialNumber?.toLowerCase().includes(query) || false;
+          matches =
+            user.deviceSerialNumber?.toLowerCase().includes(query) || false;
         } else if (searchField === "deviceLocation") {
           matches = user.deviceLocation?.toLowerCase().includes(query) || false;
         }
@@ -357,7 +350,7 @@ const UserManagementPage = () => {
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
-                      {displayedUsers.map((user, index) => {
+                      {displayedUsers.map((user) => {
                         return (
                           <CTableRow key={user.id}>
                             <CTableDataCell>
