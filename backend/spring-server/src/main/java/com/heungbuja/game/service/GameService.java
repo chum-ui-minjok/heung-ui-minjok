@@ -36,6 +36,10 @@ import com.heungbuja.game.repository.jpa.ActionRepository;
 import com.heungbuja.game.state.GameSession;
 import com.heungbuja.game.repository.jpa.ScoreByActionRepository;
 import com.heungbuja.s3.service.MediaUrlService;
+import com.heungbuja.session.service.SessionPrepareService;
+import com.heungbuja.song.dto.SongGameData;
+import com.heungbuja.song.service.SongGameDataCache;
+import com.heungbuja.context.service.ConversationContextService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -194,6 +198,11 @@ public class GameService {
     private final PoseTrainingDataRepository poseTrainingDataRepository;
     private final com.heungbuja.game.repository.mongo.MotionInferenceLogRepository motionInferenceLogRepository;
 
+    // MCP와 동일한 로직 사용을 위한 의존성
+    private final SongGameDataCache songGameDataCache;
+    private final SessionPrepareService sessionPrepareService;
+    private final ConversationContextService conversationContextService;
+
     @Qualifier("aiWebClient") // 여러 WebClient Bean 중 aiWebClient를 특정
     private final WebClient aiWebClient;
 
@@ -232,114 +241,94 @@ public class GameService {
     }
 
     /**
-     * 1. 게임 시작 로직 (디버깅용 - GameState, GameSession 동시 생성)
+     * 1. 게임 시작 로직 - MCP와 동일한 로직 사용
+     * SongGameDataCache + SessionPrepareService 사용
      */
     @Transactional
     public GameStartResponse startGame(GameStartRequest request) {
-        User user = userRepository.findById(request.getUserId()).orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        Long userId = request.getUserId();
+        Long songId = request.getSongId();
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         if (!user.getIsActive()) throw new CustomException(ErrorCode.USER_NOT_ACTIVE);
-        Song song = songRepository.findById(request.getSongId()).orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
+
+        Song song = songRepository.findById(songId)
+                .orElseThrow(() -> new CustomException(ErrorCode.SONG_NOT_FOUND));
 
         // 청취 이력 기록 (인기곡 집계용 - 게임 모드)
         listeningHistoryService.recordListening(user, song, PlaybackMode.EXERCISE);
 
-        Long songId = song.getId();
-        SongBeat songBeat = songBeatRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "비트 정보를 찾을 수 없습니다."));
-        SongLyrics lyricsInfo = songLyricsRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "가사 정보를 찾을 수 없습니다."));
-        SongChoreography choreography = songChoreographyRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "안무 지시 정보를 찾을 수 없습니다."));
-        ChoreographyPattern patternData = choreographyPatternRepository.findBySongId(songId).orElseThrow(() -> new CustomException(ErrorCode.GAME_METADATA_NOT_FOUND, "안무 패턴 정보를 찾을 수 없습니다."));
-        log.info(" > 모든 MongoDB 데이터 조회 성공");
+        log.info("게임 시작 요청: userId={}, songId={}", userId, songId);
 
-        log.info("프론트엔드 응답 데이터 가공을 시작합니다...");
-        Map<Integer, Double> beatNumToTimeMap = songBeat.getBeats().stream().collect(Collectors.toMap(SongBeat.Beat::getI, SongBeat.Beat::getT));
-        Map<Integer, Double> barStartTimes = songBeat.getBeats().stream().filter(b -> b.getBeat() == 1).collect(Collectors.toMap(SongBeat.Beat::getBar, SongBeat.Beat::getT));
-        List<ActionTimelineEvent> verse1Timeline = createVerseTimeline(songBeat, choreography, patternData, beatNumToTimeMap, "verse1");
+        // 1. SongGameDataCache에서 게임 데이터 조회 (MCP와 동일)
+        SongGameData songGameData = songGameDataCache.getOrLoadSongGameData(songId);
+        log.info("SongGameData 로드 완료: songId={}", songId);
 
-        // 2절 타임라인을 Map으로 수집
-        Map<String, List<ActionTimelineEvent>> verse2TimelinesMap = new HashMap<>();
-        choreography.getVersions().get(0).getVerse2().forEach(levelInfo -> {
-            String levelKey = "level" + levelInfo.getLevel();
-            List<ActionTimelineEvent> levelTimeline = createVerseTimelineForLevel(songBeat, choreography, patternData, beatNumToTimeMap, "verse2", levelInfo);
-            verse2TimelinesMap.put(levelKey, levelTimeline);
-            log.info(" > 2절 {} 타임라인 생성 완료. 엔트리 개수: {}", levelKey, levelTimeline.size());
-        });
-
-        // Verse2Timeline 객체로 변환
-        GameStartResponse.Verse2Timeline verse2Timeline = GameStartResponse.Verse2Timeline.builder()
-                .level1(verse2TimelinesMap.get("level1"))
-                .level2(verse2TimelinesMap.get("level2"))
-                .level3(verse2TimelinesMap.get("level3"))
-                .build();
-
-        // 섹션별 패턴 시퀀스 생성 (섹션 전체 길이만큼)
-        GameStartResponse.SectionPatterns sectionPatterns = createSectionPatterns(songBeat, choreography);
-
-        // SectionInfo (Map)와 SegmentInfo 생성
-        Map<String, Double> sectionInfo = createSectionInfo(songBeat, beatNumToTimeMap);
-        GameStartResponse.SegmentRange verse1cam = createSegmentRange(songBeat, "verse1", beatNumToTimeMap);
-        GameStartResponse.SegmentRange verse2cam = createSegmentRange(songBeat, "verse2", beatNumToTimeMap);
-        GameStartResponse.SegmentInfo segmentInfo = GameStartResponse.SegmentInfo.builder()
-                .verse1cam(verse1cam)
-                .verse2cam(verse2cam)
-                .build();
-
-        String sessionId = UUID.randomUUID().toString();
-        // MCP와 동일하게 실제 presigned URL 사용
+        // 2. audioUrl 생성
         String audioUrl = mediaUrlService.issueUrlById(song.getMedia().getId());
-        Map<String, String> videoUrls = generateVideoUrls(choreography);
 
-        GameState gameState = GameState.builder()
-                .sessionId(sessionId)
-                .userId(user.getId())
-                .songId(songId)
-                .audioUrl(audioUrl)
-                .videoUrls(videoUrls)
-                .bpm(songBeat.getTempoMap().get(0).getBpm())
-                .duration(songBeat.getAudio().getDurationSec())
-                .sectionInfo(sectionInfo)
-                .segmentInfo(segmentInfo)
-                .lyricsInfo(lyricsInfo.getLines())
-                .verse1Timeline(verse1Timeline)
-                .verse2Timelines(verse2Timeline)
-                .sectionPatterns(sectionPatterns)
-                .tutorialSuccessCount(0)
+        // 3. SessionPrepareService로 세션 준비 (MCP와 동일)
+        GameSessionPrepareResponse prepareResponse = sessionPrepareService.prepareGameSession(
+                userId, song, audioUrl, songGameData);
+        log.info("게임 세션 준비 완료: sessionId={}", prepareResponse.getSessionId());
+
+        // 4. Conversation Context 업데이트 (MCP와 동일)
+        conversationContextService.changeMode(userId, PlaybackMode.EXERCISE);
+        conversationContextService.setCurrentSong(userId, songId);
+
+        // 5. Verse2Timeline 변환
+        GameStartResponse.Verse2Timeline verse2Timeline = GameStartResponse.Verse2Timeline.builder()
+                .level1(songGameData.getVerse2Timelines().get("level1"))
+                .level2(songGameData.getVerse2Timelines().get("level2"))
+                .level3(songGameData.getVerse2Timelines().get("level3"))
                 .build();
 
-        GameSession gameSession = GameSession.initial(sessionId, user.getId(), song.getId());
+        // 6. SectionInfo → Map 변환
+        Map<String, Double> sectionInfoMap = new HashMap<>();
+        sectionInfoMap.put("introStartTime", songGameData.getSectionInfo().getIntroStartTime());
+        sectionInfoMap.put("verse1StartTime", songGameData.getSectionInfo().getVerse1StartTime());
+        sectionInfoMap.put("breakStartTime", songGameData.getSectionInfo().getBreakStartTime());
+        sectionInfoMap.put("verse2StartTime", songGameData.getSectionInfo().getVerse2StartTime());
 
-        // <-- (수정) Key가 중복되지 않도록 각각 다른 접두사를 붙여 저장합니다.
-        String gameStateKey = GAME_STATE_KEY_PREFIX + sessionId;
-        String gameSessionKey = GAME_SESSION_KEY_PREFIX + sessionId;
-        gameStateRedisTemplate.opsForValue().set(gameStateKey, gameState, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
-        gameSessionRedisTemplate.opsForValue().set(gameSessionKey, gameSession, Duration.ofMinutes(SESSION_TIMEOUT_MINUTES));
-        log.info("Redis에 GameState와 GameSession 저장 완료: sessionId={}", sessionId);
-
-        sessionStateService.setCurrentActivity(user.getId(), ActivityState.game(sessionId));
-        sessionStateService.setSessionStatus(sessionId, "IN_PROGRESS");
-
-        GameResult gameResult = GameResult.builder()
-                .user(user)
-                .song(song)
-                .sessionId(sessionId)
-                .status(GameSessionStatus.IN_PROGRESS)
-                .startTime(LocalDateTime.now())
+        // 7. SegmentInfo 변환
+        GameStartResponse.SegmentInfo segmentInfo = GameStartResponse.SegmentInfo.builder()
+                .verse1cam(GameStartResponse.SegmentRange.builder()
+                        .startTime(songGameData.getSectionInfo().getVerse1cam().getStartTime())
+                        .endTime(songGameData.getSectionInfo().getVerse1cam().getEndTime())
+                        .build())
+                .verse2cam(GameStartResponse.SegmentRange.builder()
+                        .startTime(songGameData.getSectionInfo().getVerse2cam().getStartTime())
+                        .endTime(songGameData.getSectionInfo().getVerse2cam().getEndTime())
+                        .build())
                 .build();
-        gameResultRepository.save(gameResult);
-        log.info("새로운 게임 세션 시작: userId={}, sessionId={}", user.getId(), sessionId);
+
+        // 8. SectionPatterns 변환
+        GameStartResponse.SectionPatterns sectionPatterns = GameStartResponse.SectionPatterns.builder()
+                .verse1(songGameData.getSectionPatterns().getVerse1())
+                .verse2(GameStartResponse.Verse2Patterns.builder()
+                        .level1(songGameData.getSectionPatterns().getVerse2().get("level1"))
+                        .level2(songGameData.getSectionPatterns().getVerse2().get("level2"))
+                        .level3(songGameData.getSectionPatterns().getVerse2().get("level3"))
+                        .build())
+                .build();
+
+        log.info("게임 시작 완료: userId={}, sessionId={}, songId={}",
+                userId, prepareResponse.getSessionId(), songId);
 
         return GameStartResponse.builder()
-                .sessionId(sessionId)
+                .sessionId(prepareResponse.getSessionId())
                 .songId(song.getId())
                 .songTitle(song.getTitle())
                 .songArtist(song.getArtist())
                 .audioUrl(audioUrl)
-                .videoUrls(videoUrls)
-                .bpm(songBeat.getTempoMap().get(0).getBpm())
-                .duration(songBeat.getAudio().getDurationSec())
-                .sectionInfo(sectionInfo)
+                .videoUrls(prepareResponse.getVideoUrls())
+                .bpm(songGameData.getBpm())
+                .duration(songGameData.getDuration())
+                .sectionInfo(sectionInfoMap)
                 .segmentInfo(segmentInfo)
-                .lyricsInfo(lyricsInfo.getLines())
-                .verse1Timeline(verse1Timeline)
+                .lyricsInfo(songGameData.getLyricsInfo().getLines())
+                .verse1Timeline(songGameData.getVerse1Timeline())
                 .verse2Timelines(verse2Timeline)
                 .sectionPatterns(sectionPatterns)
                 .build();
