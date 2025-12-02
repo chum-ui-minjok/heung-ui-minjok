@@ -56,10 +56,10 @@ export const useAuth = () => {
         }
       }
 
-      // 역할에 따라 다른 대시보드로 이동
+      // 역할에 따라 다른 페이지로 이동
       const isSuperAdmin = role === "SUPER_ADMIN" || role === "superadmin";
-      const dashboardPath = isSuperAdmin ? "/dashboard/developer" : "/dashboard/admin";
-      navigate(dashboardPath);
+      const redirectPath = isSuperAdmin ? "/dashboard/developer/visualization" : "/dashboard/admin/emergencies";
+      navigate(redirectPath);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.";
