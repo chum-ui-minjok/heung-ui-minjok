@@ -11,7 +11,7 @@ import {
   CTableHeaderCell,
   CTableRow,
 } from "@coreui/react";
-import { Button, Badge } from "../components";
+import { Button, Badge, Modal, Input } from "../components";
 import DashboardHeader from "../components/DashboardHeader";
 import AdminLayout from "../layouts/AdminLayout";
 import {
@@ -20,7 +20,7 @@ import {
   userRegisterNavItem,
 } from "../config/navigation";
 import { useUserStore, useNotificationStore, useDeviceStore } from "../stores";
-import { getUsers } from "../api/user";
+import { getUsers, updateUser, deactivateUser } from "../api/user";
 import { getDevices } from "../api/device";
 import { mockUsers, mockDevices } from "../mocks/mockData";
 import "../styles/dashboard.css";
@@ -32,6 +32,8 @@ const useMockData = import.meta.env.VITE_USE_MOCK === "true";
 interface UserWithDevice {
   id: number;
   name: string;
+  birthDate?: string;
+  emergencyContact?: string;
   deviceId: number;
   deviceSerialNumber?: string;
   deviceLocation?: string;
@@ -62,6 +64,13 @@ const UserManagementPage = () => {
 
   // 페이지네이션 상태
   const [displayCount, setDisplayCount] = useState<number>(10);
+
+  // 수정/삭제 관련 상태
+  const [selectedUser, setSelectedUser] = useState<UserWithDevice | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editContact, setEditContact] = useState("");
 
   // 어르신 목록 로드
   const loadUsers = useCallback(async () => {
@@ -117,6 +126,8 @@ const UserManagementPage = () => {
       return {
         id: user.id,
         name: user.name,
+        birthDate: user.birthDate,
+        emergencyContact: user.emergencyContact,
         deviceId: user.deviceId,
         deviceSerialNumber: device?.serialNumber,
         deviceLocation: device?.location || user.location,
@@ -207,6 +218,53 @@ const UserManagementPage = () => {
   // 더보기 버튼 핸들러
   const handleLoadMore = () => {
     setDisplayCount((prev: number) => prev + 10);
+  };
+
+  // 사용자 비활성화
+  const handleDeactivateUser = async (user: UserWithDevice) => {
+    if (!window.confirm(`'${user.name}' 사용자를 비활성화하시겠습니까?`)) {
+      return;
+    }
+    try {
+      setIsProcessing(true);
+      await deactivateUser(user.id);
+      // 프론트 상태에서 해당 사용자 제거
+      setUsers(users.filter((u) => u.id !== user.id));
+    } catch (error) {
+      console.error("사용자 비활성화 실패:", error);
+      alert("사용자 비활성화에 실패했습니다.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // 간단한 이름/연락처 수정 (예시로 최소 필드만)
+  const handleOpenEdit = (user: UserWithDevice) => {
+    setSelectedUser(user);
+    setEditName(user.name);
+    setEditContact(user.emergencyContact || "");
+    setIsEditModalOpen(true);
+  };
+
+  const handleApplyEdit = async () => {
+    if (!selectedUser) return;
+    try {
+      setIsProcessing(true);
+      const updated = await updateUser(selectedUser.id, {
+        name: editName,
+        emergencyContact: editContact || undefined,
+      } as any);
+      // 스토어 사용자 목록 갱신
+      setUsers(
+        users.map((u) => (u.id === updated.id ? { ...u, ...updated } : u))
+      );
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error("사용자 수정 실패:", error);
+      alert("사용자 수정에 실패했습니다.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -352,6 +410,7 @@ const UserManagementPage = () => {
                         <CTableHeaderCell>상태</CTableHeaderCell>
                         <CTableHeaderCell>마지막 활동</CTableHeaderCell>
                         <CTableHeaderCell>등록일</CTableHeaderCell>
+                        <CTableHeaderCell>관리</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
@@ -379,6 +438,26 @@ const UserManagementPage = () => {
                             <CTableDataCell>
                               {formatDate(user.createdAt)}
                             </CTableDataCell>
+                            <CTableDataCell className="action-cell">
+                              <div className="d-flex gap-2 justify-content-center">
+                                <Button
+                                  variant="secondary"
+                                  className="table-action-btn"
+                                  onClick={() => handleOpenEdit(user)}
+                                  disabled={isProcessing}
+                                >
+                                  수정
+                                </Button>
+                                <Button
+                                  variant="danger"
+                                  className="table-action-btn"
+                                  onClick={() => handleDeactivateUser(user)}
+                                  disabled={isProcessing}
+                                >
+                                  비활성화
+                                </Button>
+                              </div>
+                            </CTableDataCell>
                           </CTableRow>
                         );
                       })}
@@ -401,6 +480,47 @@ const UserManagementPage = () => {
             </div>
           </CCol>
         </CRow>
+
+        {/* 사용자 수정 모달 */}
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => !isProcessing && setIsEditModalOpen(false)}
+          title="사용자 정보 수정"
+        >
+          {selectedUser && (
+            <div className="d-grid gap-3">
+              <Input
+                label="이름"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={isProcessing}
+              />
+              <Input
+                label="비상 연락처"
+                placeholder="010-0000-0000"
+                value={editContact}
+                onChange={(e) => setEditContact(e.target.value)}
+                disabled={isProcessing}
+              />
+              <div className="d-flex justify-content-end gap-2 mt-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setIsEditModalOpen(false)}
+                  disabled={isProcessing}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleApplyEdit}
+                  disabled={isProcessing || !editName.trim()}
+                >
+                  저장
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
       </CContainer>
     </AdminLayout>
   );
