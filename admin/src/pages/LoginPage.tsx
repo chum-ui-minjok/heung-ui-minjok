@@ -12,10 +12,11 @@ import {
 } from "@coreui/react";
 import { Button } from "../components";
 import { useAuth } from "../hooks/useAuth";
+import "../styles/login.css";
 
 const LoginPage = () => {
   const [username, setUsername] = useState("developer");
-  const [password, setPassword] = useState("djfudna25!");
+  const [password, setPassword] = useState("");
   const { login, isLoading, error } = useAuth();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -29,12 +30,19 @@ const LoginPage = () => {
   };
 
   return (
-    <CContainer fluid className="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <CContainer fluid className="login-container">
       <CRow className="w-100 justify-content-center px-3">
         <CCol xs={12} md={8} lg={5} xl={4}>
           <CCard className="shadow-sm border-0">
             <CCardHeader className="text-center bg-white border-0 pt-4 pb-0">
-              <h1 className="h3 mb-1">🎵 흥의 민족</h1>
+              <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
+                <img
+                  src={`${import.meta.env.BASE_URL}logo.svg`}
+                  alt="흥의민족 로고"
+                  style={{ width: '40px', height: '40px' }}
+                />
+                <h1 className="h3 mb-0">흥의 민족</h1>
+              </div>
               <p className="text-body-secondary mb-0">관리자 로그인</p>
             </CCardHeader>
             <CCardBody className="pt-4">
