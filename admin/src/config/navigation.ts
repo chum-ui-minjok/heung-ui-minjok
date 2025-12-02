@@ -19,7 +19,7 @@ export interface NavigationItem {
 
 export const adminBaseNavItems: NavigationItem[] = [
   {
-    to: "/dashboard/admin",
+    to: "/dashboard/admin/emergencies",
     label: "관리자 대시보드",
     description: "신고 현황과 기기 관리",
     icon: cilSpeedometer,

@@ -74,7 +74,6 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
   const sidebarNavItems = useMemo(() => {
     // 관리자 페이지에서 '대시보드' 탭 관련 경로인 경우
     const isDashboardSection =
-      location.pathname === "/dashboard/admin" ||
       location.pathname === "/dashboard/admin/emergencies" ||
       location.pathname === "/dashboard/admin/users";
 
@@ -95,7 +94,9 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
 
     // '등록/관리' 섹션일 때는 '관리자 대시보드' 제외
     if (isAdminPage && isRegisterSection) {
-      return navItems.filter((item) => item.to !== "/dashboard/admin");
+      return navItems.filter(
+        (item) => item.to !== "/dashboard/admin/emergencies"
+      );
     }
 
     // 개발자 페이지에서 '곡 관리' 섹션인 경우
@@ -133,8 +134,7 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
               adminTopNavItems.map((item) => {
                 const isActive =
                   item.to === "/dashboard/admin/emergencies"
-                    ? location.pathname === "/dashboard/admin" ||
-                      location.pathname === "/dashboard/admin/emergencies" ||
+                    ? location.pathname === "/dashboard/admin/emergencies" ||
                       location.pathname === "/dashboard/admin/users"
                     : location.pathname.startsWith(
                         "/dashboard/admin/device-register"
@@ -206,10 +206,7 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
                     to={item.to}
                     className={({ isActive }) => {
                       // 특정 경로는 정확히 일치할 때만 활성화
-                      const exactMatchPaths = [
-                        "/dashboard/developer",
-                        "/dashboard/admin",
-                      ];
+                      const exactMatchPaths = ["/dashboard/developer"];
                       const isExactMatch = exactMatchPaths.includes(
                         item.to || ""
                       )
