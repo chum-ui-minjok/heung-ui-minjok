@@ -1,107 +1,169 @@
-# 흥부자
+<p align="left">
+  <img src="./imgs/title.png" width="100%">
+</p>
 
-## 프로젝트 개요
-흥부자 프로젝트의 백엔드 서버입니다.
+<br>
 
-## 기술 스택
-- **Backend**: Spring Boot 3.5.7
-- **Database**: MySQL 8.0.42
-- **Language**: Java 17
-- **Build Tool**: Gradle
-- **Container**: Docker, Docker Compose
+![alt text](https://img.shields.io/badge/React-18-blue?logo=react)
+![alt text](https://img.shields.io/badge/Python-3.9-blue?logo=python)
+![alt text](https://img.shields.io/badge/Spring%20Boot-3.x-green?logo=spring-boot)
+![alt text](https://img.shields.io/badge/Raspberry%20Pi-A22846?logo=raspberry-pi)
 
-## 프로젝트 구조
-```
-S13P31A103/
-├── docker-compose.yml                # Docker Compose 설정 (프로젝트 루트)
-├── .env                              # 환경 변수 (로컬, git 제외)
-├── .env.example                      # 환경 변수 예시 파일
-├── backend/
-│   └── spring-server/                # Spring Boot 프로젝트
-│       ├── src/
-│       │   ├── main/
-│       │   │   ├── java/com/heungbuja/
-│       │   │   └── resources/
-│       │   │       └── application.yml
-│       │   └── test/
-│       ├── Dockerfile
-│       ├── build.gradle
-│       └── settings.gradle
-└── README.md
-```
+<br>
 
-## 환경 설정
+## 📖 프로젝트 개요
 
-### 1. 환경 변수 파일 생성
-프로젝트 루트에 `.env` 파일을 생성하세요.
-`.env.example`을 참고하여 필요한 환경 변수를 설정합니다.
+**음성인식 기반으로 어르신의 여가 생활을 보조하고 응급 상황에 대응하는 돌봄 시스템**
 
-```bash
-cp .env.example .env
-# .env 파일을 편집하여 실제 값 입력
-```
 
-`.env` 파일 예시:
-```env
-# MySQL Database Configuration
-MYSQL_ROOT_PASSWORD=root1234
-MYSQL_DATABASE=heungbuja_db
-MYSQL_USER=heungbuja_user
-MYSQL_PASSWORD=heungbuja1234
+<br>
 
-# Spring Boot Configuration
-SPRING_PROFILES_ACTIVE=prod
-SERVER_PORT=8080
-```
+## 🚀 주요 기능
 
-### 2. Docker Compose로 서비스 실행
-```bash
-docker-compose up -d
-```
+<p align="left">
+  <img src="./imgs/services.png" width="100%">
+</p>
 
-### 3. 서비스 확인
-- Spring Boot: http://localhost:8080
-- Health Check: http://localhost:8080/health
+### 1. 음성 명령을 통한 주요 기능 제어
+> "흥민아" 라는 호출어로 시스템을 활성화하고, 직관적인 음성 명령으로 모든 기능을 손쉽게 제어
 
-## 개발 환경 설정
+-   **음악 재생**: "송대관 유행가 틀어줘" 와 같이 가수와 노래 제목을 말하면 음악을 즉시 재생
+-   **간편한 제어**: "그만 들을래" 등 간단한 명령으로 기능 정지
 
-### 로컬 개발 (Docker 없이)
-1. MySQL을 로컬에 설치하고 실행
-2. `.env` 파일에서 가져온 설정 값으로 `application.yml` 수정
-3. Spring Boot 실행
+<p align="left">
+  <img src="./imgs/song.png" width="60%">
+</p>
 
-```bash
-cd backend/spring-server
-./gradlew bootRun
-```
+### 2. AI 동작 인식을 활용한 음악 체조 게임
+> "체조할래" 음성 명령으로 시작되는 인터랙티브 건강 관리 콘텐츠
+  
+-   **실시간 동작 분석**: 카메라를 통해 사용자의 체조 동작을 실시간으로 인식하고 AI 모델로 정확도 분석
+-   **동적 난이도 조절**: 사용자의 점수에 따라 다음 동작의 난이도가 자동으로 조절되어 흥미와 참여를 유도
+-   관리자 대시보드에서 어르신 정보 확인
+  
+<p align="left">
+  <img src="./imgs/game.png" width="60%">
+</p>
 
-## 주요 기능
-- Health Check 엔드포인트 (`/health`)
-- MySQL 데이터베이스 연결
-- JPA를 통한 ORM 지원
+<p align="left">
+  <img src="./imgs/admin_page.png" width="60%">
+</p>
 
-## API 엔드포인트
-- `GET /health` - 서비스 헬스 체크
+### 3. 응급 상황 감지 및 신속 알림
+> "살려줘" 와 같은 위급 상황을 암시하는 음성을 감지하여 신속하게 대응
 
-## 빌드 및 배포
-```bash
-# Docker 이미지 빌드
-docker-compose build
+-   **응급 호출**: 특정 키워드 감지 시, 사전에 등록된 관리자에게 SMS 또는 앱 알림을 자동으로 발송
+-   **이력 관리**: 관리자 대시보드에서 응급 상황 발생 이력을 조회하고 관리
+  
+<p align="left">
+  <img src="./imgs/emergency.png" width="60%">
+</p>
 
-# 로그 확인
-docker-compose logs -f spring
-```
+<p align="left">
+  <img src="./imgs/emergency_admin.png" width="60%">
+</p>
 
-## 문제 해결
+<br>
 
-### Docker 컨테이너가 시작되지 않는 경우
-```bash
-# 로그 확인
-docker-compose logs
+## 사용 기술
 
-# 컨테이너 상태 확인
-docker-compose ps
+<p align="left">
+  <img src="./imgs/skills.png" width="60%">
+</p>
+ 
 
-# 컨테이너 재시작
-docker-compose restart spring
-```
+### 1. 안무 영상
+> 어르신이 보고 따라하실 수 있도록 체조 시범을 보이는 캐릭터 영상 제작
+<p align="left">
+  <img src="./imgs/action.png" width="60%">
+</p>
+  
+### 2. 동작 악보
+> 노래의 박자에 맞게 체조 동작이 나오도록 하기 위해 동작 악보 제작
+<p align="left">
+  <img src="./imgs/dev_page.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/motion1.png" width="60%">
+</p>
+  
+### 3. 체조 피드백
+> 사용자가 동작을 잘 따라하고 있는지 실시간으로 피드백 후 1절 점수를 바탕으로 2절 동작 난이도를 동적으로 조절
+<p align="left">
+  <img src="./imgs/game1.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/game2.png" width="60%">
+</p>
+  
+<p align="left">
+  <img src="./imgs/game3.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/game4.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/game5.png" width="60%">
+</p>
+
+### 4. 음성 컨트롤러
+> 사용자의 음성을 분석하여 기능 실행
+<p align="left">
+  <img src="./imgs/voice1.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/voice2.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/voice3.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/voice4.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/voice5.png" width="60%">
+</p>
+
+<p align="left">
+  <img src="./imgs/voice6.png" width="60%">
+</p>
+
+## 사용자 베타 테스트 후기
+<p align="left">
+  <img src="./imgs/test.png" width="60%">
+</p>
+
+
+<br>
+
+## 🛠️ 기술 스택 
+
+| 구분                | 기술                                                                     |
+| :------------------ | :----------------------------------------------------------------------- |
+| **Frontend**        | `React`, `Vite`, `React Router`     |
+| **Backend**      | `Spring Boot`, `Java 17`, `Spring Security`, `JWT`, `JPA`                                |
+| **AI / VUI**         | `Python`, `OpenCV`, `MediaPipe`, `Picovoice`, `GPT`                   |
+| **Database**        | `MySQL`, `Redis`, `Mongo DB`                                                                  |
+| **Embedded / IoT**  | `Raspberry Pi 4`          |
+| **Infra**           | `AWS`, `Docker`, `Nginx`                                                   |
+
+<br>
+
+## 👨‍💻 팀원 (Team 흥마법사)
+
+| 이름     | 역할              |
+| :------- | :---------------- | 
+| **이지민** | **팀장, Backend, AI**  | 
+| **김선민**   | **Frontend**        |
+| **박재은** | **Frontend**        |
+| **윤현석** | **Backend, AI**    |
+| **이영우** | **Infra**      |
+| **장수연** | **Backend, Embedded**     |
