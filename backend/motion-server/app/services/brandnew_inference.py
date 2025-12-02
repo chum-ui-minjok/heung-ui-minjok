@@ -559,7 +559,8 @@ class BrandnewMotionInferenceService:
 @lru_cache(maxsize=1)
 def get_brandnew_inference_service() -> BrandnewMotionInferenceService:
     """Brandnew 모델을 사용하는 추론 서비스 반환."""
-    model_path = Path(__file__).resolve().parent.parent / "brandnewTrain" / "checkpoints" / "brandnew_model_v2.pt"
+    # 기존 + 게임 데이터 합쳐서 학습한 모델 (91.61% val acc)
+    model_path = Path(__file__).resolve().parent.parent / "ver2Train" / "checkpoints" / "combined_model_v1.pt"
 
     if not model_path.exists():
         raise FileNotFoundError(f"Brandnew 모델 파일을 찾을 수 없습니다: {model_path}")
