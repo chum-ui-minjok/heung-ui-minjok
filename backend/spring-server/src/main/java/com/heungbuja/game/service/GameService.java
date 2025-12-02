@@ -284,7 +284,8 @@ public class GameService {
                 .build();
 
         String sessionId = UUID.randomUUID().toString();
-        String audioUrl = getTestUrl("/media/test");
+        // MCP와 동일하게 실제 presigned URL 사용
+        String audioUrl = mediaUrlService.issueUrlById(song.getMedia().getId());
         Map<String, String> videoUrls = generateVideoUrls(choreography);
 
         GameState gameState = GameState.builder()
