@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/pose": "^0.5.1675469404",
     "@stomp/stompjs": "^7.2.1",
     "axios": "^1.13.1",
     "jszip": "^3.10.1",

@@ -122,9 +122,7 @@ export const useGameStore = create<GameState>((set) => ({
   setAll: (p) => set(p),
 
   setFromApi: (resp) => {
-    const d = resp.gameInfo;
-    // const = (arr: string[] | undefined | ull): string[] =>
-    // Array.isArray(arr) ? arr.slice(0, 4) : [];
+    const d = 'gameInfo' in resp ? resp.gameInfo : resp;
     
     set({
       sessionId: d.sessionId,

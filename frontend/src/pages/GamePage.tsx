@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCamera } from '@/hooks/useCamera';
-import { useFrameStreamer } from '@/hooks/useFrameStreamer';
+import { usePoseDetection } from '@/hooks/usePoseDetection';
 import { useMusicMonitor } from '@/hooks/useMusicMonitor';
 // import { useLyricsSync } from '@/hooks/useLyricsSync';
 import { useGameWs } from '@/hooks/useGameWs';
@@ -9,19 +8,19 @@ import { useActionTimelineSync } from '@/hooks/useActionTimelineSync';
 import type  { FeedbackMessage, GameEndResponse, GameWsMessage } from '@/types/game';
 import { useGameStore } from '@/store/gameStore';
 import { gameEndApi } from '@/api/game';
-import  VoiceButton from '@/components/VoiceButton'
 import LoadingDots from '@/components/icons/LoadingDots';
 import './GamePage.css';
+
+// Mock 모드: .env 파일의 VITE_USE_MOCK로 제어
+const useMockMode = import.meta.env.VITE_USE_MOCK === 'true';
 
 function GamePage() {
   const navigate = useNavigate();
 
   // === 상태 / 참조 ===
   const motionVideoRef = useRef<HTMLVideoElement | null>(null); // 동작 영상
-  const videoRef = useRef<HTMLVideoElement | null>(null);       // 카메라 영상
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const captureTimeoutsRef = useRef<number[]>([]);
+  const poseScheduleTimersRef = useRef<number[]>([]);
   const countdownTimerRef = useRef<number | null>(null);
   const hasNavigatedRef = useRef(false);
   const songBpmRef = useRef<number>(120);
@@ -48,7 +47,7 @@ function GamePage() {
   const switchLatenciesRef = useRef<number[]>([]);
   const patternSwitchLatenciesRef = useRef<number[]>([]);
   const frameIntervalsRef = useRef<number[]>([]);
-  const captureCostRef = useRef<number[]>([]);
+  // const captureCostRef = useRef<number[]>([]);
 
   const pendingSwitchRef = useRef<{
     section: SectionKey;
@@ -75,7 +74,7 @@ function GamePage() {
   const feedbackHideTimerRef = useRef<number | null>(null);
   const [verse2Level, setVerse2Level] = useState<'level1' | 'level2' | 'level3'>('level2');
 
-  const { connect, disconnect, sendFrame, isConnected } = useGameWs({
+  const { connect, disconnect, sendPoseData, isConnected } = useGameWs({
     onError: () => {
       if (forceStopRef.current) return;
       setWsMessage('웹소켓 연결 실패');   // 문구 먼저 노출
@@ -126,10 +125,18 @@ function GamePage() {
     },
   });
 
-  const { isCapturing, start: startStream, stop: stopStream } = useFrameStreamer({
-    videoRef, audioRef, canvasRef,
-  });
-  const { stream, isReady, error, startCamera, stopCamera } = useCamera();
+  const {
+    videoRef,
+    isReady,
+    // isCameraOn,
+    isDetecting,
+    error,
+    currentLandmarks,
+    startCamera,
+    stopCamera,
+    startDetection,
+    stopDetection,
+  } = usePoseDetection();
 
   const {
     sessionId,
@@ -181,7 +188,7 @@ function GamePage() {
 
   // === 수동 루프 파라미터 ===
   const LOOP_EPS = 0.02;     // 경계 여유
-  const LOOP_RESTART = 0.06; // 되감을 위치(싱크 보정)
+  const LOOP_RESTART = 0; // 되감을 위치(싱크 보정)
 
   function getPatternSequenceForSection(
     section: SectionKey,
@@ -439,6 +446,7 @@ function GamePage() {
 
   // 웹소켓 연결 확인
   useEffect(() => {
+    if (useMockMode) return; // Mock 모드면 체크 안 함
     if (forceStopRef.current) return;
     if (hasNavigatedRef.current) return;
     if (stopRequested) return;
@@ -469,7 +477,7 @@ function GamePage() {
 
   // 자동 카운트다운
   useEffect(() => {
-    const readyToStart = !!(isReady && audioRef.current?.src && isConnected);
+    const readyToStart = !!(isReady && audioRef.current?.src && (isConnected || useMockMode));
     if (readyToStart && !isGameStarted && !isCounting && !countdownTimerRef.current) {
       startCountdown();
     }
@@ -493,27 +501,27 @@ function GamePage() {
     };
   }, []);
 
-  // === 카메라 스트림 연결 ===
+  // === Pose 데이터 전송 ===
   useEffect(() => {
-    if (stream && videoRef.current && !videoRef.current.srcObject) {
-      videoRef.current.srcObject = stream;
-      console.log('📹 카메라 스트림 연결 완료');
-    }
-  }, [stream]);
+    if (!currentLandmarks) return;
 
-  // === Canvas 크기 ===
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !canvasRef.current) return;
+    const currentPlayTime = audioRef.current?.currentTime ?? 0;
 
-    const onMeta = () => {
-      if (!canvasRef.current) return;
-      canvasRef.current.width = video.videoWidth || 320;
-      canvasRef.current.height = video.videoHeight || 240;
-    };
-    video.addEventListener('loadedmetadata', onMeta);
-    return () => video.removeEventListener('loadedmetadata', onMeta);
-  }, []);
+    // WebSocket으로 보낼 데이터 (연결 여부 상관없이 확인용)
+    // console.log('📤 sendPoseData 데이터:', {
+    //   sessionId,
+    //   currentPlayTime,
+    //   poseData: currentLandmarks,
+    // });
+
+    if (!sessionId || !isConnected) return;
+
+    sendPoseData({
+      sessionId,
+      currentPlayTime,
+      poseData: currentLandmarks,
+    });
+  }, [currentLandmarks, sessionId, isConnected, sendPoseData]);
 
   useEffect(() => {
     if (!stopRequested) return;
@@ -710,63 +718,67 @@ function GamePage() {
 
   // === 게임 시작 ===
   async function beginGame() {
-    if (!isConnected || !audioRef.current || !isReady) return;
+    if ((!isConnected && !useMockMode) || !audioRef.current || !isReady) return;
     startMonitoring();
 
-    // 오디오 먼저 재생
+    // 카메라 시작 (게임 시작 시 바로 켬)
+    await startCamera();
+
+    // 오디오 재생
     await audioRef.current.play().catch(e => console.warn('audio play err', e));
 
-    scheduleRangeCaptures(); // 구간 캡처/스트리밍 시작
+    // 구간별 Pose 감지 스케줄링
+    schedulePoseDetection();
   }
 
-  // === 구간 캡처 스케줄링(서버 segmentInfo 사용) ===
-  function scheduleRangeCaptures() {
+  // === 구간별 Pose 감지 스케줄링 (segmentInfo 기준) ===
+  function schedulePoseDetection() {
     const audio = audioRef.current;
     if (!audio || !segmentInfo) return;
 
-    clearCaptureTimeouts();
-
-    const sid = sessionId!;
+    // 기존 스케줄 전부 클리어
+    clearPoseScheduleTimers();
 
     const verse1 = segmentInfo.verse1cam;
     const verse2 = segmentInfo.verse2cam;
-    const segments = [
-      verse1 ? { key: 'verse1' as const, start: verse1.startTime, end: verse1.endTime } : null,
-      verse2 ? { key: 'verse2' as const, start: verse2.startTime, end: verse2.endTime } : null,
-    ].filter(Boolean) as Array<{ key: 'verse1' | 'verse2'; start: number; end: number }>;
 
-    segments.forEach(({ start, end }) => {
-      if (end <= start) return;
+    const scheduleSegment = (segment: { startTime: number; endTime: number } | null) => {
+      if (!segment) return;
 
       const now = audio.currentTime;
-      const delayMs = Math.max(0, (start - now) * 1000);
+      const startDelay = Math.max(0, (segment.startTime - now) * 1000);
+      const endDelay = Math.max(0, (segment.endTime - now) * 1000);
 
-      const timeoutId = window.setTimeout(() => {
-        const cur = audio.currentTime;
-        if (cur >= end) return;
+      // 시작 시점에 Pose 감지 시작
+      const startTimer = window.setTimeout(() => {
+        if (audio.currentTime < segment.endTime) {
+          console.log('🦴 Pose 감지 시작:', segment.startTime);
+          startDetection();
+        }
+      }, startDelay);
+      poseScheduleTimersRef.current.push(startTimer);
 
-      const effectiveStart = Math.max(cur, start);
-      startStream(effectiveStart, end, (blob, { t /*, idx*/ }) => {
-        const start = performance.now();
-        void sendFrame({ sessionId: sid, blob, currentPlayTime: t }).finally(() => {
-          const end = performance.now();
-          captureCostRef.current.push(end - start);
-        });
-      });
-      }, delayMs);
+      // 종료 시점에 Pose 감지 중지
+      const endTimer = window.setTimeout(() => {
+        console.log('🦴 Pose 감지 중지:', segment.endTime);
+        stopDetection();
+      }, endDelay);
+      poseScheduleTimersRef.current.push(endTimer);
+    };
 
-      captureTimeoutsRef.current.push(timeoutId);
-    });
+    // verse1, verse2 구간 스케줄링
+    scheduleSegment(verse1);
+    scheduleSegment(verse2);
   }
 
-  function clearCaptureTimeouts() {
-    captureTimeoutsRef.current.forEach(id => clearTimeout(id));
-    captureTimeoutsRef.current = [];
+  function clearPoseScheduleTimers() {
+    poseScheduleTimersRef.current.forEach((t) => clearTimeout(t));
+    poseScheduleTimersRef.current = [];
   }
 
   // === 카운트다운 ===
   function startCountdown() {
-    if (isGameStarted || isCounting || !isConnected ) return;
+    if (isGameStarted || isCounting || (!isConnected && !useMockMode)) return;
     setIsCounting(true);
     setCount(5);
 
@@ -795,15 +807,7 @@ function GamePage() {
     setWsMessage(null);
     setRedirectReason(null);
 
-    stopMonitoring();
-    stopCamera();
-    stopStream();
-    clearCaptureTimeouts();
-    disconnect();
-    if (audioRef.current) {
-      audioRef.current.onerror = null;
-      audioRef.current.pause();
-    }
+    cleanupGameResources();
 
     const res: GameEndResponse = await gameEndApi();
 
@@ -818,9 +822,8 @@ function GamePage() {
   function cleanupGameResources() {
     stopMonitoring();
     stopCamera();
-    stopStream();
-    clearCaptureTimeouts();
     disconnect();
+    clearPoseScheduleTimers();
     if (audioRef.current) {
       audioRef.current.onerror = null;
       audioRef.current.pause();
@@ -828,13 +831,14 @@ function GamePage() {
     const mv = motionVideoRef.current;
     if (mv) {
       mv.pause();
-      mv.currentTime = 0;   // 필요하면 처음 프레임으로
+      mv.currentTime = 0;
     }
   }
 
   async function handleForceStop() {
     forceStopRef.current = true;
     cleanupGameResources();
+    gameEndApi().catch(() => {}); // 서버에 종료 알림 (응답 불필요)
     setRedirectReason(null);
     setWsMessage(null);
     clear();
@@ -862,11 +866,8 @@ function GamePage() {
 
   // === 초기화: store 기반으로만 세팅 ===
   useEffect(() => {
-    // let cancelled = false;
     (async () => {
       try {
-        startCamera();
-
         // 필수 데이터 가드
         if (!audioUrl || !bpm || !duration || !sectionInfo || !sessionId) {
           console.warn('필수 게임 데이터가 없습니다. 튜토리얼로 이동합니다.');
@@ -900,7 +901,10 @@ function GamePage() {
           verse2StartTime: sectionInfo.verse2StartTime ?? 0,
         };
 
-        connect(sessionId);
+        // WebSocket 연결 (Mock 모드가 아닐 때만)
+        if (!useMockMode) {
+          connect(sessionId);
+        }
         forceStopRef.current = false;
 
         await loadFromGameStart({ bpm, duration, timeline });
@@ -911,18 +915,15 @@ function GamePage() {
     })();
 
     return () => {
-      // cancelled = true;
-      stopCamera();
-      stopMonitoring();
-      stopStream();
-      clearCaptureTimeouts();
-      if (audioRef.current) {
-        audioRef.current.onerror = null;
-        audioRef.current.pause();
-      };
+      // 뒤로가기 등 페이지 이탈 시 리소스 정리
+      // forceStopRef가 true면 이미 handleForceStop/goToResultOnce에서 처리됨
+      if (!forceStopRef.current) {
+        cleanupGameResources();
+        gameEndApi().catch(() => {}); // 응답 불필요, 에러 무시
+      }
       if (sectionMessageTimerRef.current) {
         clearTimeout(sectionMessageTimerRef.current);
-      };
+      }
     };
   }, []);
 
@@ -975,10 +976,9 @@ function GamePage() {
                   muted
                   className="camera-video"
                 />
-                <canvas ref={canvasRef} className="capture-canvas" />
 
                 <div className="segment-info">
-                  {isCapturing && <span className="capturing-badge">📹 동작 인식 중</span>}
+                  {isDetecting && <span className="capturing-badge">📹 동작 인식 중</span>}
                 </div>
 
                 {error && <div className="error-message">❌ {error}</div>}
@@ -1032,8 +1032,6 @@ function GamePage() {
               )}
             </div>
           </div>
-
-          <VoiceButton />
         </div>
       </div>
     </>
