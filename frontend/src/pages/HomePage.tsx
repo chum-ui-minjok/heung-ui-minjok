@@ -13,23 +13,24 @@ import WakeWordDetector from "@/components/WakeWordDetector"; // 새로 만든 �
 import { useAudioStore } from "@/store/audioStore";
 import { useGameStore } from "@/store/gameStore";
 import "./HomePage.css";
+import { useModeStore } from "@/store/modeStore";
+import "./HomePage.css";
 
 const BASE_URL = import.meta.env.BASE_URL;
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { setMode } = useModeStore();
 
-  // 1. 음성 관련 훅들을 HomePage에서 직접 호출하여 상태를 중앙 관리합니다.
-  // const { isRecording, countdown, audioBlob, startRecording } = useVoiceRecorder();
-  // const { isUploading, isPlaying, responseText, response, sendCommand } = useVoiceCommand({});
-  // const { pause } = useAudioStore();
-  // const requestGameStop = useGameStore((s) => s.requestStop);
+  const handleMusicClick = () => {
+    setMode("LISTENING");
+    navigate("/list");
+  };
 
-  const handleMusicClick = () => navigate("/listening");
-  const handleExerciseClick = () => navigate("/tutorial");
-
-  // const isVoiceBusy = isRecording || isUploading || isPlaying;
-  // const isEmergency = response?.intent === "EMERGENCY";
+  const handleExerciseClick = () => {
+    setMode("EXERCISE");
+    navigate("/list");
+  };
 
   return (
     <div className="home-page">

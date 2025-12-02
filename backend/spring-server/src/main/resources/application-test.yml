@@ -43,11 +43,12 @@ logging:
 security:
   permit-all-paths: /api/**
 
-# 게임 데이터 로컬 저장 (테스트 환경에서 활성화)
+# 게임 데이터 저장 (테스트 환경)
 game:
   data:
-    save-enabled: true
+    save-enabled: true   # 로컬 파일 저장 (테스트용)
     save-path: ../motion-server/app/brandnewTrain/game_data_mediapipe
+    save-to-db: false    # MongoDB 저장 비활성화 (로컬 테스트)
 
 # AI 서버 (로컬)
 ai:

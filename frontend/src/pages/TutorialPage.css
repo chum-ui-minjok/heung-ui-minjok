@@ -6,6 +6,15 @@
   background: var(--color-bg);
 }
 
+/* 숨겨진 비디오 - 카메라 초기화용 */
+.tutorial-hidden-video {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* 상단 단계 인디케이터 */
 .tutorial-steps {
   margin-top: 40px;
@@ -129,6 +138,83 @@
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1); /* 거울 효과 */
+}
+
+/* 가이드 SVG 오버레이 */
+.tutorial-guide-svg {
+  position: absolute;
+  bottom: 17%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  height: 100%;
+  color: rgba(150, 150, 150, 0.6);
+  transition: color 0.3s ease;
+  pointer-events: none;
+  
+}
+
+.tutorial-guide-svg.matched {
+  color: #2fd27d;
+}
+
+/* 건너뛰기 버튼 */
+.tutorial-skip-btn {
+  position: relative;
+  margin-top: 16px;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.15);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.tutorial-skip-btn:hover {
+  background: rgba(0, 0, 0, 0.25);
+  transform: translateY(-2px);
+}
+
+.tutorial-skip-btn:active {
+  transform: translateY(0);
+}
+
+/* 건너뛰기 버튼 커스텀 툴팁 */
+.skip-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.skip-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.85);
+}
+
+.tutorial-skip-btn:hover .skip-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* 안내 문구 공통 스타일 */

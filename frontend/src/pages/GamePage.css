@@ -90,6 +90,8 @@
   align-items: stretch;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+  border-radius: 30px;
 }
 
 /* 비디오를 감싸는 박스: 비율 유지 + 크롭 영역 */
@@ -196,10 +198,10 @@
 
 /* 위쪽: 카메라 */
 .camera-section {
-  flex: 1;
+  flex: 2;
   position: relative;
   display: flex;
-  align-items: center; 
+  align-items: center;
   justify-content: center;
   margin-top: 5%;
 }
@@ -358,7 +360,7 @@
 /* 동작 인식 피드백 */
 
 .feedback-section {
-  flex: 3;
+  flex: 2;
   position: relative;
   display: flex;
   align-items: center;
