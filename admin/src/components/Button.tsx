@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
-import '../styles/button.css';
+import { CButton } from '@coreui/react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'success' | 'danger' | 'secondary';
@@ -13,17 +13,14 @@ const Button = ({
   className = '',
   ...props 
 }: ButtonProps) => {
-  const baseClass = 'btn';
-  const variantClass = `btn-${variant}`;
-  const widthClass = fullWidth ? 'btn-full-width' : '';
-  
   return (
-    <button
-      className={`${baseClass} ${variantClass} ${widthClass} ${className}`}
+    <CButton
+      color={variant}
+      className={`${fullWidth ? 'w-100' : ''} ${className}`.trim()}
       {...props}
     >
       {children}
-    </button>
+    </CButton>
   );
 };
 

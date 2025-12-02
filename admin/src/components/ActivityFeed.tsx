@@ -36,9 +36,9 @@ const ActivityFeed = ({ activities }: ActivityFeedProps) => {
 
   return (
     <div className="activity-feed">
-      {activities.map((activity) => (
+      {activities.map((activity, index) => (
         <div
-          key={activity.id}
+          key={`${activity.id}-${index}`}
           className={`activity-item ${activity.type.toLowerCase()}`}
         >
           <div className="activity-content">

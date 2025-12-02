@@ -80,7 +80,7 @@ const DeviceUserGrid = () => {
 
   return (
     <div className="device-user-grid">
-      {devices.map((device) => {
+      {devices.map((device, index) => {
         const user = users.find((u) => u.deviceId === device.id);
         const hasEmergency = user
           ? emergencies.some((e) => e.userId === user.id && e.status === 'CONFIRMED')
@@ -88,7 +88,7 @@ const DeviceUserGrid = () => {
 
         return (
           <DeviceUserCard
-            key={device.id}
+            key={`${device.id}-${index}`}
             device={device}
             user={user}
             hasEmergency={hasEmergency}
