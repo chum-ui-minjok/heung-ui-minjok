@@ -1,24 +1,29 @@
-import  type { User, RegisterUserRequest, RegisterUserResponse } from '../types/user';
+import type {
+  User,
+  RegisterUserRequest,
+  RegisterUserResponse,
+} from "../types/user";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 /**
  * 어르신 목록 조회
  */
 export const getUsers = async (): Promise<User[]> => {
-  const token = localStorage.getItem('accessToken');
-  
+  const token = localStorage.getItem("accessToken");
+
   const response = await fetch(`${API_BASE}/admins/users`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || '어르신 목록을 불러오는데 실패했습니다.');
+    throw new Error(error.message || "어르신 목록을 불러오는데 실패했습니다.");
   }
 
   return response.json();
@@ -27,21 +32,23 @@ export const getUsers = async (): Promise<User[]> => {
 /**
  * 어르신 등록
  */
-export const registerUser = async (userData: RegisterUserRequest): Promise<RegisterUserResponse> => {
-  const token = localStorage.getItem('accessToken');
-  
+export const registerUser = async (
+  userData: RegisterUserRequest
+): Promise<RegisterUserResponse> => {
+  const token = localStorage.getItem("accessToken");
+
   const response = await fetch(`${API_BASE}/admins/users`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(userData),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || '어르신 등록에 실패했습니다.');
+    throw new Error(error.message || "어르신 등록에 실패했습니다.");
   }
 
   return response.json();
@@ -51,20 +58,69 @@ export const registerUser = async (userData: RegisterUserRequest): Promise<Regis
  * 특정 어르신 상세 조회
  */
 export const getUserById = async (userId: number): Promise<User> => {
-  const token = localStorage.getItem('accessToken');
-  
+  const token = localStorage.getItem("accessToken");
+
   const response = await fetch(`${API_BASE}/admins/users/${userId}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     },
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.message || '어르신 정보를 불러오는데 실패했습니다.');
+    throw new Error(error.message || "어르신 정보를 불러오는데 실패했습니다.");
   }
 
   return response.json();
+};
+
+/**
+ * 어르신 정보 수정
+ */
+export const updateUser = async (
+  userId: number,
+  data: Partial<User>
+): Promise<User> => {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(`${API_BASE}/admins/users/${userId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "어르신 정보를 수정하는데 실패했습니다.");
+  }
+
+  return response.json();
+};
+
+/**
+ * 어르신 비활성화(삭제 대체)
+ */
+export const deactivateUser = async (userId: number): Promise<void> => {
+  const token = localStorage.getItem("accessToken");
+
+  const response = await fetch(
+    `${API_BASE}/admins/users/${userId}/deactivate`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "어르신을 비활성화하는데 실패했습니다.");
+  }
 };

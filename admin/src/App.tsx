@@ -3,7 +3,6 @@ import LoginPage from "./pages/LoginPage";
 import EmergencyReportPage from "./pages/EmergencyReportPage";
 import UserManagementPage from "./pages/UserManagementPage";
 import SongVisualizationPage from "./pages/SongVisualizationPage";
-import DeveloperDashboardPage from "./pages/DeveloperDashboardPage";
 import SimpleSongUploadPage from "./pages/SimpleSongUploadPage";
 import DeviceRegisterPage from "./pages/DeviceRegisterPage";
 import UserRegisterPage from "./pages/UserRegisterPage";
@@ -35,7 +34,9 @@ function App() {
         />
         <Route
           path="/dashboard/developer"
-          element={<DeveloperDashboardPage />}
+          element={
+            <Navigate to="/dashboard/developer/visualization" replace />
+          }
         />
         <Route
           path="/dashboard/developer/song-upload"
