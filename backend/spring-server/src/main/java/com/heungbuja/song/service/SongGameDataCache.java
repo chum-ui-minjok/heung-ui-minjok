@@ -368,9 +368,9 @@ public class SongGameDataCache {
                 .endTime(beatNumToTimeMap.getOrDefault(verse1CamEndBeat, 0.0))
                 .build();
 
-        // verse2는 짧게 끊어서 계산 편하게 (48비트 = 12마디)
+        // verse2는 끝나는 지점에서 16박자 전까지
         int verse2CamStartBeat = verse2Section.getStartBeat() + 32;
-        int verse2CamEndBeat = Math.min(verse2CamStartBeat + 48, verse2Section.getEndBeat() - 8);
+        int verse2CamEndBeat = verse2Section.getEndBeat() - 16;
         SectionInfo.VerseInfo verse2CamInfo = SectionInfo.VerseInfo.builder()
                 .startTime(beatNumToTimeMap.getOrDefault(verse2CamStartBeat, 0.0))
                 .endTime(beatNumToTimeMap.getOrDefault(verse2CamEndBeat, 0.0))

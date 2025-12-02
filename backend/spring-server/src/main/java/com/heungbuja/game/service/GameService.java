@@ -503,17 +503,11 @@ public class GameService {
     private GameStartResponse.SegmentRange createSegmentRange(SongBeat songBeat, String verseLabel, Map<Integer, Double> beatNumToTimeMap) {
         SongBeat.Section verseSection = findSectionByLabel(songBeat, verseLabel);
         int camStartBeat = verseSection.getStartBeat() + 32;
-        // verse2는 짧게 끊어서 계산 편하게 (48비트 = 12마디)
-        int camEndBeat = "verse2".equals(verseLabel)
-                ? camStartBeat + 48
-                : camStartBeat + (16 * 6);
 
-        // camEndBeat가 섹션 범위를 초과하면 섹션의 endBeat - 8로 제한 (여유 두기)
-        int maxAllowedBeat = verseSection.getEndBeat() - 8;
-        if (camEndBeat > maxAllowedBeat) {
-            camEndBeat = maxAllowedBeat;
-            log.debug("{}의 camEndBeat를 {}로 조정 (섹션 끝 전 여유)", verseLabel, camEndBeat);
-        }
+        // verse2는 끝나는 지점에서 16박자 전까지, verse1은 기존 로직
+        int camEndBeat = "verse2".equals(verseLabel)
+                ? verseSection.getEndBeat() - 16
+                : Math.min(camStartBeat + (16 * 6), verseSection.getEndBeat() - 8);
 
         double startTime = beatNumToTimeMap.getOrDefault(camStartBeat, 0.0);
         double endTime = beatNumToTimeMap.getOrDefault(camEndBeat, 0.0);
