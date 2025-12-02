@@ -1,22 +1,35 @@
-import type { GameEndResponse } from '@/types/game';
+import type { GameStartResponse, GameEndResponse } from '@/types/game';
 import api from './index';
 import { useGameStore } from '@/store/gameStore';
-import { mockGameStart } from '@/mocks/gameStart.mock';
 
-// const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true';
+export const gameStartApi = (songId: number) => {
+  const userIdStr = localStorage.getItem('userId');
 
-export const gameStartApi = () => {
-  // if (USE_MOCK) {
-    return mockGameStart();
-  // }
-  // return api.post<GameStartResponse>('/game/start', { songId }, true);
-}
+  if (!userIdStr) {
+    throw new Error('사용자 ID가 없습니다. 다시 로그인해 주세요.');
+  }
 
-export const gameEndApi = () => {
+  const userId = Number(userIdStr);
+  if (Number.isNaN(userId)) {
+    throw new Error('잘못된 사용자 ID입니다.');
+  }
+
+  return api.post<GameStartResponse, { userId: number; songId: number }>(
+    '/game/start',
+    { userId, songId },
+    true,
+  );
+};
+
+export const gameEndApi = (): Promise<GameEndResponse> => {
   const { sessionId } = useGameStore.getState();
 
   if (!sessionId) {
-    throw new Error('세션 ID가 없습니다. 게임 시작 정보가 제대로 설정되지 않았습니다.');
+    console.warn('세션 ID가 없습니다. gameEndApi 호출 스킵.');
+    return Promise.resolve({
+      finalScore: 0,
+      message: '',
+    });
   }
 
   const path = `/game/end?sessionId=${encodeURIComponent(sessionId)}`;

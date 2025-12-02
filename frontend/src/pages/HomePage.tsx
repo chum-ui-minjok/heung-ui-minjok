@@ -1,19 +1,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useModeStore } from '@/store/modeStore';
 import './HomePage.css';
-import VoiceButton from '@/components/VoiceButton';
 
 const BASE_URL = import.meta.env.BASE_URL;
 
 const HomePage: React.FC = () => {
   const navigate = useNavigate();
+  const { setMode } = useModeStore();
 
   const handleMusicClick = () => {
-    navigate('/listening');
+    setMode('LISTENING');
+    navigate('/list');
   };
 
   const handleExerciseClick = () => {
-    navigate('/tutorial'); // 추후 노래 목록 페이지로 이동 고민
+    setMode('EXERCISE');
+    navigate('/list');
   };
 
   return (
@@ -49,8 +52,6 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </div>
-      {/* 음성인식 버튼 */}
-      <VoiceButton />
     </div>
   );
 };
