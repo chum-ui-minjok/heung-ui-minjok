@@ -362,14 +362,15 @@ public class SongGameDataCache {
         SongBeat.Section verse2Section = findSectionByLabel(songBeat, "verse2");
 
         int verse1CamStartBeat = verse1Section.getStartBeat() + 32;
-        int verse1CamEndBeat = verse1CamStartBeat + (16 * 6);
+        int verse1CamEndBeat = Math.min(verse1CamStartBeat + (16 * 6), verse1Section.getEndBeat() - 8);
         SectionInfo.VerseInfo verse1CamInfo = SectionInfo.VerseInfo.builder()
                 .startTime(beatNumToTimeMap.getOrDefault(verse1CamStartBeat, 0.0))
                 .endTime(beatNumToTimeMap.getOrDefault(verse1CamEndBeat, 0.0))
                 .build();
 
+        // verse2는 짧게 끊어서 계산 편하게 (48비트 = 12마디)
         int verse2CamStartBeat = verse2Section.getStartBeat() + 32;
-        int verse2CamEndBeat = verse2CamStartBeat + (16 * 6);
+        int verse2CamEndBeat = Math.min(verse2CamStartBeat + 48, verse2Section.getEndBeat() - 8);
         SectionInfo.VerseInfo verse2CamInfo = SectionInfo.VerseInfo.builder()
                 .startTime(beatNumToTimeMap.getOrDefault(verse2CamStartBeat, 0.0))
                 .endTime(beatNumToTimeMap.getOrDefault(verse2CamEndBeat, 0.0))

@@ -59,8 +59,8 @@ public class GameStartResponse {
     /** 1절의 동작 타임라인 */
     private List<ActionTimelineEvent> verse1Timeline;
 
-    /** 2절의 레벨별 동작 타임라인 */
-    private Verse2Timeline verse2Timeline;
+    /** 2절의 레벨별 동작 타임라인 (MCP와 동일한 필드명) */
+    private Verse2Timeline verse2Timelines;
 
     /** 섹션별로 반복되는 패턴 시퀀스 (eachRepeat 적용된 실제 반복 순서) */
     private SectionPatterns sectionPatterns;
