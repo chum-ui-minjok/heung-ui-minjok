@@ -21,6 +21,7 @@ import {
 } from "../config/navigation";
 import { useUserStore, useNotificationStore, useDeviceStore } from "../stores";
 import { getUsers } from "../api/user";
+import { getDevices } from "../api/device";
 import { mockUsers, mockDevices } from "../mocks/mockData";
 import "../styles/dashboard.css";
 import "../styles/emergency-report-table.css";
@@ -72,8 +73,12 @@ const UserManagementPage = () => {
         setUsers(mockUsers);
         setDevices(mockDevices);
       } else {
-        const data = await getUsers();
-        setUsers(data);
+        const [usersData, devicesData] = await Promise.all([
+          getUsers(),
+          getDevices(),
+        ]);
+        setUsers(usersData);
+        setDevices(devicesData);
       }
     } catch (error) {
       console.error("어르신 목록 로드 실패:", error);
