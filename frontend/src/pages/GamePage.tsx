@@ -188,7 +188,7 @@ function GamePage() {
 
   // === 수동 루프 파라미터 ===
   const LOOP_EPS = 0.02;     // 경계 여유
-  const LOOP_RESTART = 0.06; // 되감을 위치(싱크 보정)
+  const LOOP_RESTART = 0; // 되감을 위치(싱크 보정)
 
   function getPatternSequenceForSection(
     section: SectionKey,
