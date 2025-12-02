@@ -303,15 +303,8 @@ public class GameService {
                         .build())
                 .build();
 
-        // 8. SectionPatterns 변환
-        GameStartResponse.SectionPatterns sectionPatterns = GameStartResponse.SectionPatterns.builder()
-                .verse1(songGameData.getSectionPatterns().getVerse1())
-                .verse2(GameStartResponse.Verse2Patterns.builder()
-                        .level1(songGameData.getSectionPatterns().getVerse2().get("level1"))
-                        .level2(songGameData.getSectionPatterns().getVerse2().get("level2"))
-                        .level3(songGameData.getSectionPatterns().getVerse2().get("level3"))
-                        .build())
-                .build();
+        // 8. SectionPatterns - 이미 GameStartResponse.SectionPatterns 타입이므로 그대로 사용
+        GameStartResponse.SectionPatterns sectionPatterns = songGameData.getSectionPatterns();
 
         log.info("게임 시작 완료: userId={}, sessionId={}, songId={}",
                 userId, prepareResponse.getSessionId(), songId);
