@@ -300,7 +300,7 @@ public class GameService {
                 .segmentInfo(segmentInfo)
                 .lyricsInfo(lyricsInfo.getLines())
                 .verse1Timeline(verse1Timeline)
-                .verse2Timeline(verse2Timeline)
+                .verse2Timelines(verse2Timeline)
                 .sectionPatterns(sectionPatterns)
                 .tutorialSuccessCount(0)
                 .build();
@@ -340,7 +340,7 @@ public class GameService {
                 .segmentInfo(segmentInfo)
                 .lyricsInfo(lyricsInfo.getLines())
                 .verse1Timeline(verse1Timeline)
-                .verse2Timeline(verse2Timeline)
+                .verse2Timelines(verse2Timeline)
                 .sectionPatterns(sectionPatterns)
                 .build();
     }

@@ -101,7 +101,7 @@ public class SessionPrepareService {
                 .segmentInfo(segmentInfo)
                 .lyricsInfo(songGameData.getLyricsInfo().getLines())
                 .verse1Timeline(songGameData.getVerse1Timeline())
-                .verse2Timeline(verse2Timeline)
+                .verse2Timelines(verse2Timeline)
                 .tutorialSuccessCount(0)
                 .build();
 
