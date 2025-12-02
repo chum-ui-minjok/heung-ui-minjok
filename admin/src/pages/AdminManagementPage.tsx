@@ -1,9 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CCard,
-  CCardBody,
-  CCardHeader,
   CCol,
   CContainer,
   CRow,
@@ -22,12 +19,12 @@ import {
   CFormInput,
   CFormSelect,
   CAlert,
-  CPagination,
-  CPaginationItem,
 } from '@coreui/react';
+import { Button } from '../components';
 import DashboardHeader from '../components/DashboardHeader';
 import { useNotificationStore } from '../stores';
 import '../styles/dashboard.css';
+import '../styles/emergency-report-table.css';
 import AdminLayout from '../layouts/AdminLayout';
 import {
   quickRegisterNavItem,
@@ -41,12 +38,19 @@ const AdminManagementPage = () => {
   const navigate = useNavigate();
   const clearUnread = useNotificationStore((state) => state.clearUnread);
 
-  const [admins, setAdmins] = useState<AdminResponse[]>([]);
+  const [allAdmins, setAllAdmins] = useState<AdminResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
+
+  // 필터링/검색 상태
+  const [roleFilters, setRoleFilters] = useState<Set<string>>(
+    new Set(['all'])
+  );
+  const [searchField, setSearchField] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // 페이지네이션 상태
+  const [displayCount, setDisplayCount] = useState<number>(10);
 
   // 모달 상태
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -71,15 +75,24 @@ const AdminManagementPage = () => {
     adminManagementNavItem,
   ];
 
-  const loadAdmins = useCallback(async (page: number = 0) => {
+  // 모든 관리자 데이터 로드
+  const loadAllAdmins = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await getAdmins(page, 20, 'createdAt,desc');
-      setAdmins(response.content);
-      setTotalPages(response.totalPages);
-      setTotalElements(response.totalElements);
-      setCurrentPage(response.number);
+      // 모든 페이지의 데이터를 가져오기 위해 여러 번 호출
+      let allData: AdminResponse[] = [];
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const response = await getAdmins(page, 100, 'createdAt,desc');
+        allData = [...allData, ...response.content];
+        hasMore = page < response.totalPages - 1;
+        page++;
+      }
+
+      setAllAdmins(allData);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '관리자 목록을 불러오는데 실패했습니다.';
       setError(errorMessage);
@@ -96,8 +109,8 @@ const AdminManagementPage = () => {
       return;
     }
 
-    loadAdmins(0);
-  }, [navigate, loadAdmins]);
+    loadAllAdmins();
+  }, [navigate, loadAllAdmins]);
 
   const handleNotificationClick = () => {
     clearUnread();
@@ -123,7 +136,7 @@ const AdminManagementPage = () => {
         email: '',
         role: AdminRole.ADMIN,
       });
-      await loadAdmins(currentPage);
+      await loadAllAdmins();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '관리자 생성에 실패했습니다.';
       setCreateError(errorMessage);
@@ -139,15 +152,95 @@ const AdminManagementPage = () => {
       await deleteAdmin(selectedAdmin.id);
       setIsDeleteModalOpen(false);
       setSelectedAdmin(null);
-      await loadAdmins(currentPage);
+      await loadAllAdmins();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '관리자 삭제에 실패했습니다.';
       alert(errorMessage);
     }
   };
 
-  const handlePageChange = (page: number) => {
-    loadAdmins(page);
+  // 역할 필터 체크박스 핸들러
+  const handleRoleFilterChange = (role: string) => {
+    setRoleFilters((prev) => {
+      const newFilters = new Set(prev);
+      if (role === 'all') {
+        if (newFilters.has('all')) {
+          newFilters.clear();
+          newFilters.add('all');
+        } else {
+          newFilters.clear();
+          newFilters.add('all');
+        }
+      } else {
+        newFilters.delete('all');
+        if (newFilters.has(role)) {
+          newFilters.delete(role);
+          if (newFilters.size === 0) {
+            newFilters.add('all');
+          }
+        } else {
+          newFilters.add(role);
+        }
+      }
+      return newFilters;
+    });
+  };
+
+  // 필터링 및 검색된 관리자 목록
+  const filteredAdmins = useMemo(() => {
+    return allAdmins.filter((admin) => {
+      // 역할 필터링 (체크박스)
+      if (!roleFilters.has('all') && !roleFilters.has(admin.role)) {
+        return false;
+      }
+
+      // 검색어 필터링
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        let matches = false;
+
+        if (searchField === 'all') {
+          matches =
+            admin.username.toLowerCase().includes(query) ||
+            admin.facilityName?.toLowerCase().includes(query) ||
+            admin.contact?.toLowerCase().includes(query) ||
+            admin.email?.toLowerCase().includes(query) ||
+            false;
+        } else if (searchField === 'username') {
+          matches = admin.username.toLowerCase().includes(query);
+        } else if (searchField === 'facilityName') {
+          matches = admin.facilityName?.toLowerCase().includes(query) || false;
+        } else if (searchField === 'contact') {
+          matches = admin.contact?.toLowerCase().includes(query) || false;
+        } else if (searchField === 'email') {
+          matches = admin.email?.toLowerCase().includes(query) || false;
+        }
+
+        if (!matches) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [allAdmins, roleFilters, searchField, searchQuery]);
+
+  // 필터가 변경되면 표시 개수 초기화
+  useEffect(() => {
+    setDisplayCount(10);
+  }, [roleFilters, searchField, searchQuery]);
+
+  // 표시할 관리자 목록 (페이지네이션 적용)
+  const displayedAdmins = useMemo(() => {
+    return filteredAdmins.slice(0, displayCount);
+  }, [filteredAdmins, displayCount]);
+
+  // 더보기 버튼 표시 여부
+  const hasMore = filteredAdmins.length > displayCount;
+
+  // 더보기 버튼 핸들러
+  const handleLoadMore = () => {
+    setDisplayCount((prev: number) => prev + 10);
   };
 
   const formatDate = (dateString: string) => {
@@ -174,114 +267,192 @@ const AdminManagementPage = () => {
           </CAlert>
         )}
 
-        <CRow className="mb-3">
-          <CCol>
-            <CButton
-              color="primary"
-              onClick={() => setIsCreateModalOpen(true)}
-            >
-              + 새 관리자 생성
-            </CButton>
+        {/* 필터링/검색 컨테이너 */}
+        <CRow className="g-4 mb-3">
+          <CCol xs={12}>
+            <div className="emergency-filter-container">
+              {/* 검색옵션 */}
+              <div className="filter-section">
+                <div className="filter-label">검색옵션</div>
+                <div className="filter-options">
+                  <label className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={roleFilters.has('all')}
+                      onChange={() => handleRoleFilterChange('all')}
+                    />
+                    <span>전체</span>
+                  </label>
+                  <label className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={roleFilters.has(AdminRole.ADMIN)}
+                      onChange={() => handleRoleFilterChange(AdminRole.ADMIN)}
+                    />
+                    <span>ADMIN</span>
+                  </label>
+                  <label className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={roleFilters.has(AdminRole.SUPER_ADMIN)}
+                      onChange={() => handleRoleFilterChange(AdminRole.SUPER_ADMIN)}
+                    />
+                    <span>SUPER_ADMIN</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* 검색명 */}
+              <div className="filter-section">
+                <div className="filter-label">검색명</div>
+                <div className="filter-search">
+                  <div className="search-combined">
+                    <select
+                      value={searchField}
+                      onChange={(e) => setSearchField(e.target.value)}
+                      className="search-field-dropdown"
+                    >
+                      <option value="all">전체</option>
+                      <option value="username">사용자명</option>
+                      <option value="facilityName">시설명</option>
+                      <option value="contact">연락처</option>
+                      <option value="email">이메일</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="검색어를 입력해주세요."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="search-input-combined"
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={() => {}}
+                    className="search-button"
+                  >
+                    검색
+                  </Button>
+                </div>
+              </div>
+            </div>
           </CCol>
         </CRow>
 
-        <CRow>
-          <CCol xs={12}>
-            <CCard>
-              <CCardHeader className="fw-semibold">
-                관리자 목록 ({totalElements}명)
-              </CCardHeader>
-              <CCardBody>
-                {isLoading ? (
-                  <div className="text-center py-4">로딩 중...</div>
-                ) : admins.length === 0 ? (
-                  <div className="text-center py-4 text-body-secondary">
-                    등록된 관리자가 없습니다.
-                  </div>
-                ) : (
-                  <>
-                    <CTable hover responsive>
-                      <CTableHead>
-                        <CTableRow>
-                          <CTableHeaderCell>ID</CTableHeaderCell>
-                          <CTableHeaderCell>사용자명</CTableHeaderCell>
-                          <CTableHeaderCell>시설명</CTableHeaderCell>
-                          <CTableHeaderCell>연락처</CTableHeaderCell>
-                          <CTableHeaderCell>이메일</CTableHeaderCell>
-                          <CTableHeaderCell>역할</CTableHeaderCell>
-                          <CTableHeaderCell>생성일</CTableHeaderCell>
-                          <CTableHeaderCell>작업</CTableHeaderCell>
-                        </CTableRow>
-                      </CTableHead>
-                      <CTableBody>
-                        {admins.map((admin) => (
-                          <CTableRow key={admin.id}>
-                            <CTableDataCell>{admin.id}</CTableDataCell>
-                            <CTableDataCell>{admin.username}</CTableDataCell>
-                            <CTableDataCell>{admin.facilityName || '-'}</CTableDataCell>
-                            <CTableDataCell>{admin.contact || '-'}</CTableDataCell>
-                            <CTableDataCell>{admin.email || '-'}</CTableDataCell>
-                            <CTableDataCell>
-                              <span
-                                className={`badge ${
-                                  admin.role === AdminRole.SUPER_ADMIN
-                                    ? 'bg-danger'
-                                    : 'bg-primary'
-                                }`}
-                              >
-                                {admin.role === AdminRole.SUPER_ADMIN ? 'SUPER_ADMIN' : 'ADMIN'}
-                              </span>
-                            </CTableDataCell>
-                            <CTableDataCell>{formatDate(admin.createdAt)}</CTableDataCell>
-                            <CTableDataCell>
-                              <CButton
-                                color="danger"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedAdmin(admin);
-                                  setIsDeleteModalOpen(true);
-                                }}
-                                disabled={admin.role === AdminRole.SUPER_ADMIN}
-                              >
-                                삭제
-                              </CButton>
-                            </CTableDataCell>
-                          </CTableRow>
-                        ))}
-                      </CTableBody>
-                    </CTable>
-
-                    {totalPages > 1 && (
-                      <CPagination className="mt-3 justify-content-center">
-                        <CPaginationItem
-                          disabled={currentPage === 0}
-                          onClick={() => currentPage > 0 && handlePageChange(currentPage - 1)}
-                        >
-                          이전
-                        </CPaginationItem>
-                        {Array.from({ length: totalPages }, (_, i) => (
-                          <CPaginationItem
-                            key={i}
-                            active={i === currentPage}
-                            onClick={() => handlePageChange(i)}
-                          >
-                            {i + 1}
-                          </CPaginationItem>
-                        ))}
-                        <CPaginationItem
-                          disabled={currentPage === totalPages - 1}
-                          onClick={() =>
-                            currentPage < totalPages - 1 && handlePageChange(currentPage + 1)
-                          }
-                        >
-                          다음
-                        </CPaginationItem>
-                      </CPagination>
-                    )}
-                  </>
+        {/* 결과 건수 표시 */}
+        {!isLoading && allAdmins.length > 0 && (
+          <CRow className="mb-2">
+            <CCol xs={12}>
+              <div className="filter-results-count">
+                전체 {filteredAdmins.length}건
+                {filteredAdmins.length > 10 && (
+                  <span className="ms-2 text-muted">
+                    ({displayedAdmins.length}건 표시)
+                  </span>
                 )}
-              </CCardBody>
-            </CCard>
+              </div>
+            </CCol>
+          </CRow>
+        )}
+
+        {/* 새 관리자 생성 버튼 */}
+        <CRow className="mb-3">
+          <CCol>
+            <Button
+              variant="primary"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
+              + 새 관리자 생성
+            </Button>
+          </CCol>
+        </CRow>
+
+        <CRow className="g-4">
+          <CCol xs={12}>
+            <div className="emergency-report-container">
+              {isLoading ? (
+                <div className="text-center py-5">
+                  <div className="spinner-border" role="status">
+                    <span className="visually-hidden">로딩 중...</span>
+                  </div>
+                  <p className="mt-2">관리자 목록 불러오는 중...</p>
+                </div>
+              ) : filteredAdmins.length === 0 ? (
+                <div className="text-center py-5">
+                  <div className="mb-3" style={{ fontSize: '3rem' }}>
+                    📋
+                  </div>
+                  <p>필터 조건에 맞는 관리자가 없습니다.</p>
+                </div>
+              ) : (
+                <>
+                  <CTable hover responsive className="emergency-report-table">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>번호</CTableHeaderCell>
+                        <CTableHeaderCell>사용자명</CTableHeaderCell>
+                        <CTableHeaderCell>시설명</CTableHeaderCell>
+                        <CTableHeaderCell>연락처</CTableHeaderCell>
+                        <CTableHeaderCell>이메일</CTableHeaderCell>
+                        <CTableHeaderCell>역할</CTableHeaderCell>
+                        <CTableHeaderCell>생성일</CTableHeaderCell>
+                        <CTableHeaderCell>작업</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {displayedAdmins.map((admin, index) => (
+                        <CTableRow key={admin.id}>
+                          <CTableDataCell>
+                            {filteredAdmins.indexOf(admin) + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>{admin.username}</CTableDataCell>
+                          <CTableDataCell>{admin.facilityName || '-'}</CTableDataCell>
+                          <CTableDataCell>{admin.contact || '-'}</CTableDataCell>
+                          <CTableDataCell>{admin.email || '-'}</CTableDataCell>
+                          <CTableDataCell>
+                            <span
+                              className={`badge ${
+                                admin.role === AdminRole.SUPER_ADMIN
+                                  ? 'badge-danger'
+                                  : 'badge-primary'
+                              }`}
+                            >
+                              {admin.role === AdminRole.SUPER_ADMIN ? 'SUPER_ADMIN' : 'ADMIN'}
+                            </span>
+                          </CTableDataCell>
+                          <CTableDataCell>{formatDate(admin.createdAt)}</CTableDataCell>
+                          <CTableDataCell className="action-cell">
+                            <Button
+                              variant="danger"
+                              onClick={() => {
+                                setSelectedAdmin(admin);
+                                setIsDeleteModalOpen(true);
+                              }}
+                              disabled={admin.role === AdminRole.SUPER_ADMIN}
+                              className="table-action-btn"
+                            >
+                              삭제
+                            </Button>
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                  {hasMore && (
+                    <div className="text-center mt-3">
+                      <Button
+                        variant="secondary"
+                        onClick={handleLoadMore}
+                        className="load-more-btn"
+                      >
+                        더 보기 ({Math.ceil(displayCount / 10)}/
+                        {Math.ceil(filteredAdmins.length / 10)})
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </CCol>
         </CRow>
 
@@ -402,4 +573,3 @@ const AdminManagementPage = () => {
 };
 
 export default AdminManagementPage;
-

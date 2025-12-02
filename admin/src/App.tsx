@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import EmergencyReportPage from './pages/EmergencyReportPage';
+import UserManagementPage from './pages/UserManagementPage';
 import SongVisualizationPage from './pages/SongVisualizationPage';
 import DeveloperDashboardPage from './pages/DeveloperDashboardPage';
 import SimpleSongUploadPage from './pages/SimpleSongUploadPage';
@@ -16,6 +18,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardRedirect />} />
         <Route path="/dashboard/admin" element={<DashboardPage />} />
+        <Route path="/dashboard/admin/emergencies" element={<EmergencyReportPage />} />
+        <Route path="/dashboard/admin/users" element={<UserManagementPage />} />
         <Route path="/dashboard/admin/device-register" element={<DeviceRegisterPage />} />
         <Route path="/dashboard/admin/user-register" element={<UserRegisterPage />} />
         <Route path="/dashboard/developer" element={<DeveloperDashboardPage />} />

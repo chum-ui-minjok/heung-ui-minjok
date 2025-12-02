@@ -1,9 +1,11 @@
 import {
   cilAudio,
+  cilBell,
   cilCloudUpload,
   cilMobile,
   cilPeople,
   cilSpeedometer,
+  cilUser,
   cilUserPlus,
 } from "@coreui/icons";
 
@@ -33,9 +35,7 @@ export const sharedSongNavItems: NavigationItem[] = [
   },
 ];
 
-export const developerBaseNavItems: NavigationItem[] = [
-  ...sharedSongNavItems,
-];
+export const developerBaseNavItems: NavigationItem[] = [...sharedSongNavItems];
 
 export const quickRegisterNavItem: NavigationItem = {
   to: "/dashboard/developer/song-upload",
@@ -63,4 +63,19 @@ export const adminManagementNavItem: NavigationItem = {
   label: "관리자 관리",
   description: "관리자 생성 및 관리",
   icon: cilPeople,
+};
+
+// 대시보드 섹션 네비게이션 항목
+export const emergencyReportNavItem: NavigationItem = {
+  to: "/dashboard/admin/emergencies",
+  label: "신고 현황",
+  description: "응급 신고 및 현황 관리",
+  icon: cilBell,
+};
+
+export const userManagementNavItem: NavigationItem = {
+  to: "/dashboard/admin/users",
+  label: "사용자 관리",
+  description: "기기 및 사용자 관리",
+  icon: cilUser,
 };
