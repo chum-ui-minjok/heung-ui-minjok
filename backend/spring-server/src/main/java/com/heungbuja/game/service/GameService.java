@@ -1094,7 +1094,7 @@ public class GameService {
         } else {
             // 2절 -> 결정된 레벨에 맞는 타임라인을 verse2Timeline 객체에서 가져옴
             int level = gameSession.getNextLevel();
-            GameStartResponse.Verse2Timeline verse2Timeline = gameState.getVerse2Timeline();
+            GameStartResponse.Verse2Timeline verse2Timeline = gameState.getVerse2Timelines();
 
             List<ActionTimelineEvent> timeline;
             switch (level) {
