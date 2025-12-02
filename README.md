@@ -7,7 +7,6 @@
 ![alt text](https://img.shields.io/badge/React-18-blue?logo=react)
 ![alt text](https://img.shields.io/badge/Python-3.9-blue?logo=python)
 ![alt text](https://img.shields.io/badge/Spring%20Boot-3.x-green?logo=spring-boot)
-![alt text](https://img.shields.io/badge/Raspberry%20Pi-A22846?logo=raspberry-pi)
 
 <br>
 
