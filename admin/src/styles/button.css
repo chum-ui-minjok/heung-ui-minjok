@@ -14,7 +14,6 @@
 }
 
 .btn:disabled {
-  opacity: 0.6;
   cursor: not-allowed;
 }
 
@@ -22,14 +21,24 @@
   width: 100%;
 }
 
-/* Primary 버튼 */
-.btn-primary {
-  background: #667eea;
-  color: white;
+/* Primary 버튼 - CoreUI 오버라이드 */
+.btn-primary,
+.btn.btn-primary {
+  background-color: #FF5035 !important;
+  border-color: #FF5035 !important;
+  color: white !important;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background: #5568d3;
+.btn-primary:hover:not(:disabled),
+.btn.btn-primary:hover:not(:disabled) {
+  background-color: #e6482f !important;
+  border-color: #e6482f !important;
+}
+
+.btn-primary:disabled,
+.btn.btn-primary:disabled {
+  background-color: #ffaa9a !important;
+  border-color: #ffaa9a !important;
 }
 
 /* Success 버튼 */

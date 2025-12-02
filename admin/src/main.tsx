@@ -1,5 +1,8 @@
 import { createRoot } from 'react-dom/client'
+import 'bootstrap/dist/css/bootstrap.min.css'
+import '@coreui/coreui/dist/css/coreui.min.css'
 import './index.css'
+import './styles/button.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

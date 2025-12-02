@@ -24,8 +24,8 @@ const UserGrid = ({ users, isLoading }: UserGridProps) => {
 
   return (
     <div className="users-grid">
-      {users.map((user) => (
-        <UserCard key={user.id} user={user} />
+      {users.map((user, index) => (
+        <UserCard key={`${user.id}-${index}`} user={user} />
       ))}
     </div>
   );

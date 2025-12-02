@@ -11,6 +11,7 @@ export interface LoginResponse {
   adminId?: number;
   userId?: number; // HTML에서는 userId로 반환
   username?: string;
+  role?: string;
 }
 
 // 에러 응답 타입

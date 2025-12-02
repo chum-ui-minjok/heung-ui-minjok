@@ -4,7 +4,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #eef1f6 0%, #f8f9fb 100%);
+  background: #FFD166;
   padding: 30px;
 }
 
@@ -39,7 +39,7 @@
 
 .login-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #FFD166;
 }
 
 .login-btn {
@@ -50,13 +50,13 @@
   font-weight: bold;
   cursor: pointer;
   transition: 0.2s;
-  background: #667eea;
+  background: #FFD166;
   color: white;
   font-size: 15px;
 }
 
 .login-btn:hover:not(:disabled) {
-  background: #5568d3;
+  background: #FFD166;
 }
 
 .login-btn:disabled {
@@ -88,4 +88,10 @@
 .login-header p {
   color: #666;
   font-size: 14px;
+}
+
+/* CoreUI input focus 오버라이드 */
+.login-container .form-control:focus {
+  border-color: #FF5035 !important;
+  box-shadow: 0 0 0 0.25rem rgba(255, 80, 53, 0.25) !important;
 }
