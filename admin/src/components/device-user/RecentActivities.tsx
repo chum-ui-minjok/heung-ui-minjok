@@ -75,8 +75,8 @@ const RecentActivities = ({ data, isLoading }: RecentActivitiesProps) => {
 
   return (
     <div className="recent-activities-list">
-      {data.map((activity) => (
-        <div key={activity.id} className="activity-log-item">
+      {data.map((activity, index) => (
+        <div key={`${activity.id}-${index}`} className="activity-log-item">
           <div
             className="activity-log-icon"
             style={{ backgroundColor: `${getActivityColor(activity.activityType)}20` }}

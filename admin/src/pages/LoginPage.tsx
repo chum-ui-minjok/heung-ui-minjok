@@ -14,8 +14,8 @@ import { Button } from "../components";
 import { useAuth } from "../hooks/useAuth";
 
 const LoginPage = () => {
-  const [username, setUsername] = useState("superadmin");
-  const [password, setPassword] = useState("superadmin123!");
+  const [username, setUsername] = useState("developer");
+  const [password, setPassword] = useState("djfudna25!");
   const { login, isLoading, error } = useAuth();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -34,7 +34,7 @@ const LoginPage = () => {
         <CCol xs={12} md={8} lg={5} xl={4}>
           <CCard className="shadow-sm border-0">
             <CCardHeader className="text-center bg-white border-0 pt-4 pb-0">
-              <h1 className="h3 mb-1">🎵 흥부자</h1>
+              <h1 className="h3 mb-1">🎵 흥의 민족</h1>
               <p className="text-body-secondary mb-0">관리자 로그인</p>
             </CCardHeader>
             <CCardBody className="pt-4">

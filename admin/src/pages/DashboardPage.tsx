@@ -46,6 +46,8 @@ const DashboardPage = () => {
   const [isEmergencyAlertOpen, setIsEmergencyAlertOpen] = useState(false);
   const [currentEmergencyAlert, setCurrentEmergencyAlert] =
     useState<EmergencyReport | null>(null);
+  // 이미 확인한 신고 ID 목록 (모달이 다시 열리지 않도록)
+  const [acknowledgedReportIds, setAcknowledgedReportIds] = useState<Set<number>>(new Set());
 
   // 응급 신고 더보기 상태
   const [showAllEmergencies, setShowAllEmergencies] = useState(false);
@@ -92,7 +94,8 @@ const DashboardPage = () => {
     } finally {
       setLoadingReports(false);
     }
-  }, [setLoadingReports, setReports]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 어르신 목록 로드
   const loadUsers = useCallback(async () => {
@@ -112,11 +115,13 @@ const DashboardPage = () => {
     } finally {
       setLoadingUsers(false);
     }
-  }, [setDevices, setLoadingUsers, setUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadDashboardData = useCallback(async () => {
     await Promise.all([loadEmergencyReports(), loadUsers()]);
-  }, [loadEmergencyReports, loadUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // 토큰 확인
@@ -132,7 +137,8 @@ const DashboardPage = () => {
     if (!useMockData) {
       connect();
     }
-  }, [connect, loadDashboardData, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 신고 처리
   const handleResolveEmergency = useCallback(
@@ -164,14 +170,16 @@ const DashboardPage = () => {
 
   // 긴급 신고 알림 (WebSocket을 통해 새 신고가 들어오면 자동으로 처리됨)
   useEffect(() => {
-    // 가장 최근 PENDING/CONFIRMED 신고가 있으면 알림 표시
-    const latestEmergency = reports.find((r) => r.status === "CONFIRMED");
+    // 가장 최근 PENDING/CONFIRMED 신고 중 아직 확인하지 않은 것이 있으면 알림 표시
+    const latestEmergency = reports.find(
+      (r) => r.status === "CONFIRMED" && !acknowledgedReportIds.has(r.reportId)
+    );
 
     if (latestEmergency && !currentEmergencyAlert) {
       setCurrentEmergencyAlert(latestEmergency);
       setIsEmergencyAlertOpen(true);
     }
-  }, [currentEmergencyAlert, reports]);
+  }, [acknowledgedReportIds, currentEmergencyAlert, reports]);
 
   const activeEmergencyCount = useMemo(
     () => reports.filter((report) => report.status !== "RESOLVED").length,
@@ -246,12 +254,16 @@ const DashboardPage = () => {
         <EmergencyAlertModal
           isOpen={isEmergencyAlertOpen}
           onClose={() => {
+            if (currentEmergencyAlert) {
+              setAcknowledgedReportIds((prev) => new Set(prev).add(currentEmergencyAlert.reportId));
+            }
             setIsEmergencyAlertOpen(false);
             setCurrentEmergencyAlert(null);
           }}
           report={currentEmergencyAlert}
           onAcknowledge={(reportId) => {
             console.log("Emergency acknowledged:", reportId);
+            setAcknowledgedReportIds((prev) => new Set(prev).add(reportId));
           }}
         />
 

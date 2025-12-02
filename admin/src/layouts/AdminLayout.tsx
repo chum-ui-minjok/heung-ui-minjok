@@ -42,7 +42,7 @@ const AdminLayout = ({ children, navItems }: AdminLayoutProps) => {
     <div className="admin-layout">
       <aside className="admin-layout__sidebar">
         <h1 className="admin-layout__brand">
-          <img src="../../public/logo.svg" alt="로고" className="admin-layout__logo" />
+          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="로고" className="admin-layout__logo" />
           <span>흥의민족</span>
           <span className="admin-layout__page-type">{pageType}</span>
         </h1>

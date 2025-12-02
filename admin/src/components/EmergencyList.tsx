@@ -37,9 +37,9 @@ const EmergencyList = ({ reports, onResolve, isLoading }: EmergencyListProps) =>
 
   return (
     <div className="emergency-list">
-      {reports.map((report) => (
+      {reports.map((report, index) => (
         <EmergencyCard
-          key={report.reportId}
+          key={`${report.reportId}-${index}`}
           report={report}
           onResolve={handleResolve}
           isResolving={resolvingId === report.reportId}
