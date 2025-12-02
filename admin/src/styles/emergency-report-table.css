@@ -1,0 +1,209 @@
+/* 필터링 컨테이너 스타일 */
+.emergency-filter-container {
+  background: #ffffff;
+  padding: 0.1rem;
+  border-radius: 3px;
+  border: 1px solid #5d5e5f;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.filter-section:last-child {
+  border-bottom: none;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #111827;
+  min-width: 70px;
+  margin-right: 1rem;
+  font-size: 0.875rem;
+}
+
+.filter-options {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #4f46e5;
+  margin: 0;
+}
+
+.filter-checkbox span {
+  font-size: 0.8125rem;
+  color: #374151;
+}
+
+.filter-search {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 1;
+}
+
+.search-combined {
+  display: flex;
+  flex: 1;
+  border: 1px solid #d1d5db;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.search-field-dropdown {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  border: none;
+  border-right: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23374151' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 2rem;
+  min-width: 90px;
+}
+
+.search-field-dropdown:hover {
+  background-color: #f9fafb;
+}
+
+.search-field-dropdown:focus {
+  background-color: #f9fafb;
+}
+
+.search-input-combined {
+  flex: 1;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8125rem;
+  border: none;
+  outline: none;
+  color: #374151;
+}
+
+.search-input-combined::placeholder {
+  color: #9ca3af;
+}
+
+.filter-search .search-button {
+  flex-shrink: 0;
+  padding: 0.4rem 1.25rem;
+  border-radius: 0;
+  font-size: 0.8125rem;
+  height: auto;
+}
+
+/* 결과 건수 표시 */
+.filter-results-count {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+  padding: 0.5rem 0;
+}
+
+/* 테이블 컨테이너 스타일 */
+.emergency-report-container {
+  background: #ffffff;
+  border: 1px solid #a7a7ab;
+  border-radius: 3px;
+  padding: 1.5rem 0;
+}
+
+.emergency-report-table {
+  border-radius: 0 !important;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  border: none;
+  margin: 0;
+}
+
+.emergency-report-table thead {
+  background: #f9fafb;
+}
+
+.emergency-report-table thead th {
+  border-radius: 0 !important;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #374151;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  border-right: none;
+  border-top: none;
+  border-left: none;
+  white-space: nowrap;
+}
+
+.emergency-report-table tbody td {
+  border-radius: 0 !important;
+  border-right: none;
+  border-top: none;
+  border-left: none;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.emergency-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 테이블 행 높이 일정하게 설정 */
+.emergency-report-table tbody tr {
+  height: 48px;
+  transition: background-color 0.15s ease;
+}
+
+.emergency-report-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.emergency-report-table tbody td {
+  vertical-align: middle;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+/* 작업 버튼 크기 조정 */
+.table-action-btn {
+  padding: 0.25rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  min-height: auto !important;
+  border-radius: 4px !important;
+}
+
+/* 작업 셀 정렬 */
+.action-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 더보기 버튼 */
+.load-more-btn {
+  padding: 0.5rem 2rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}

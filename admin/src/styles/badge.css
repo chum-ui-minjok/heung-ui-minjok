@@ -1,29 +1,39 @@
 /* 배지 스타일 */
 .badge {
-  padding: 4px 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: bold;
-  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
   display: inline-block;
+  border: 1px solid;
 }
 
 .badge-success {
-  background: #2ecc71;
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #10b981;
 }
 
 .badge-warning {
-  background: #f39c12;
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #f59e0b;
 }
 
 .badge-danger {
-  background: #e74c3c;
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #ef4444;
 }
 
 .badge-secondary {
-  background: #95a5a6;
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #9ca3af;
 }
 
 .badge-primary {
-  background: #667eea;
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #3b82f6;
 }
